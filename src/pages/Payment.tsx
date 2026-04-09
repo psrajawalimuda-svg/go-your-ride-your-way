@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { usePayment, type PaymentMethodType } from "@/context/PaymentContext";
+import { useNotifications } from "@/context/NotificationContext";
 import { QRCodeSVG } from "qrcode.react";
 
 const methods: { id: PaymentMethodType; label: string; desc: string; icon: typeof Wallet }[] = [
@@ -26,6 +27,7 @@ function formatRp(n: number) {
 export default function Payment() {
   const navigate = useNavigate();
   const { activeTransaction, processPayment, walletBalance } = usePayment();
+  const { sendNotification } = useNotifications();
   const [selected, setSelected] = useState<PaymentMethodType>("wallet");
   const [processing, setProcessing] = useState(false);
   const [cardNumber, setCardNumber] = useState("");
@@ -43,6 +45,15 @@ export default function Payment() {
     if (selected === "wallet" && walletBalance < amount) return;
     setProcessing(true);
     await processPayment(activeTransaction.id, selected);
+    
+    // Send notification
+    await sendNotification(
+      "payment_success",
+      "Payment Successful",
+      `Your payment of ${formatRp(amount)} for "${activeTransaction.description}" was successful.`,
+      { transactionId: activeTransaction.id, amount }
+    );
+
     setProcessing(false);
     navigate("/payment/status");
   };

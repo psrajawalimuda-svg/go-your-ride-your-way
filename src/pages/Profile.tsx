@@ -6,15 +6,16 @@ import { motion } from "framer-motion";
 import { useTheme } from "@/hooks/use-theme";
 
 const menuItems = [
-  { icon: CreditCard, label: "Payment Methods", desc: "Manage cards & wallets" },
-  { icon: Bell, label: "Notifications", desc: "Alerts & push settings" },
-  { icon: Shield, label: "Safety", desc: "Emergency contacts & settings" },
-  { icon: Star, label: "Rewards", desc: "Points & promotions" },
-  { icon: HelpCircle, label: "Help Center", desc: "FAQ & support" },
+  { icon: CreditCard, label: "Payment Methods", desc: "Manage cards & wallets", path: "/payment" },
+  { icon: Bell, label: "Notifications", desc: "Alerts & push settings", path: "/notifications/settings" },
+  { icon: Shield, label: "Safety", desc: "Emergency contacts & settings", path: "/safety" },
+  { icon: Star, label: "Rewards", desc: "Points & promotions", path: "/rewards" },
+  { icon: HelpCircle, label: "Help Center", desc: "FAQ & support", path: "/help" },
 ];
 
 export default function Profile() {
   const { theme, toggleTheme } = useTheme();
+  const navigate = useNavigate();
 
   return (
     <MobileLayout>
@@ -78,6 +79,7 @@ export default function Profile() {
               initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: i * 0.05 }}
+              onClick={() => navigate(item.path)}
               className="w-full flex items-center gap-3 p-3.5 rounded-xl hover:bg-secondary/60 transition-colors"
             >
               <div className="p-2 rounded-lg bg-secondary">

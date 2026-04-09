@@ -136,3 +136,31 @@ export interface Payment {
   createdAt: string;
   completedAt?: string;
 }
+
+// ─── Notifications ──────────────────────────────────────────────────────────
+
+export type NotificationType =
+  | "driver_found"
+  | "trip_started"
+  | "trip_completed"
+  | "payment_success"
+  | "shuttle_reminder"
+  | "system";
+
+export interface Notification {
+  id: string;
+  userId: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  isRead: boolean;
+  isPush: boolean;
+  metadata?: Record<string, any>;
+  createdAt: string;
+}
+
+export interface NotificationPreference {
+  userId: string;
+  pushEnabled: boolean;
+  types: Record<NotificationType, boolean>;
+}

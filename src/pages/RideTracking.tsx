@@ -7,6 +7,7 @@ import { MapView, generateRoutePoints } from "@/components/MapView";
 import { RideBottomSheet } from "@/components/ride/RideBottomSheet";
 import { useNavigate } from "react-router-dom";
 import { useRide, type RideStatus } from "@/context/RideContext";
+import { useNotifications } from "@/context/NotificationContext";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import {
@@ -33,6 +34,7 @@ const SEARCH_TIMEOUT = 15000;
 export default function RideTracking() {
   const navigate = useNavigate();
   const { ride, setRide, resetRide } = useRide();
+  const { sendNotification } = useNotifications();
 
   const pickupPos = ride.pickup.latlng || [-6.2088, 106.8456] as [number, number];
   const destPos = ride.destination.latlng || [-6.1751, 106.8650] as [number, number];
@@ -49,9 +51,17 @@ export default function RideTracking() {
     if (status !== "searching") return;
     const timer = setTimeout(() => setStatus("timeout"), SEARCH_TIMEOUT);
     // Simulate finding driver after 4s
-    const findTimer = setTimeout(() => setStatus("found"), 4000);
+    const findTimer = setTimeout(() => {
+      setStatus("found");
+      sendNotification(
+        "driver_found",
+        "Driver Found!",
+        `${DRIVER.name} (${DRIVER.plate}) is on the way to pick you up.`,
+        { driverId: "DRV-001", vehicle: DRIVER.vehicle }
+      );
+    }, 4000);
     return () => { clearTimeout(timer); clearTimeout(findTimer); };
-  }, [status]);
+  }, [status, sendNotification]);
 
   // Found → arriving after 3s
   useEffect(() => {
@@ -71,9 +81,17 @@ export default function RideTracking() {
         return s - 1;
       });
     }, 1000);
-    const t = setTimeout(() => setStatus("on_trip"), 8000);
+    const t = setTimeout(() => {
+      setStatus("on_trip");
+      sendNotification(
+        "trip_started",
+        "Trip Started",
+        "Your trip has started. Sit back and enjoy the ride!",
+        { tripId: ride.pickup.name }
+      );
+    }, 8000);
     return () => { clearInterval(interval); clearTimeout(t); };
-  }, [status]);
+  }, [status, sendNotification, ride.pickup.name]);
 
   // On trip — animate along route, decrement ETA
   useEffect(() => {
@@ -90,11 +108,17 @@ export default function RideTracking() {
       } else {
         clearInterval(interval);
         setStatus("completed");
+        sendNotification(
+          "trip_completed",
+          "Trip Completed",
+          "You have arrived at your destination. Hope you had a great ride!",
+          { tripId: ride.pickup.name, fare: ride.fare }
+        );
       }
     }, 500);
 
     return () => clearInterval(interval);
-  }, [status, pickupPos, destPos]);
+  }, [status, pickupPos, destPos, sendNotification, ride.pickup.name, ride.fare]);
 
   const handleRetry = () => setStatus("searching");
   const handleCancel = () => { resetRide(); navigate("/home"); };

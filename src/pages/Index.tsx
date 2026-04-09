@@ -1,9 +1,11 @@
-import { Navigation, Car, Bike, Truck, Bus, ChevronRight, Star, Clock } from "lucide-react";
+import { Navigation, Car, Bike, Truck, Bus, ChevronRight, Star, Clock, Bell } from "lucide-react";
 import { MobileLayout } from "@/components/layout/MobileLayout";
 import { MapView } from "@/components/MapView";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
+import { useNotifications } from "@/context/NotificationContext";
+import { Button } from "@/components/ui/button";
 
 const vehicleTypes = [
   { id: "bike", icon: Bike, label: "Bike", eta: "3 min", price: "Rp 8K" },
@@ -19,6 +21,7 @@ const recentPlaces = [
 
 export default function Index() {
   const navigate = useNavigate();
+  const { unreadCount } = useNotifications();
 
   return (
     <MobileLayout>
@@ -31,6 +34,19 @@ export default function Index() {
               <span className="text-lg font-extrabold text-primary">PYU</span>
               <span className="text-lg font-extrabold text-accent">GO</span>
             </div>
+            <Button
+              variant="outline"
+              size="icon"
+              className="bg-card rounded-2xl shadow-lg border-none relative h-10 w-10"
+              onClick={() => navigate("/notifications")}
+            >
+              <Bell className="h-5 w-5" />
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-white">
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </span>
+              )}
+            </Button>
           </div>
         </div>
 

@@ -17,6 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { usePayment } from "@/context/PaymentContext";
+import { useNotifications } from "@/context/NotificationContext";
 import { format } from "date-fns";
 import { QRCodeSVG } from "qrcode.react";
 import html2canvas from "html2canvas";
@@ -90,6 +91,7 @@ function formatPrice(n: number) {
 export default function Shuttle() {
   const navigate = useNavigate();
   const { createTransaction } = usePayment();
+  const { sendNotification } = useNotifications();
   const [step, setStep] = useState<BookingStep>("search");
   const stepIdx = STEPS.indexOf(step);
 
@@ -192,6 +194,15 @@ export default function Shuttle() {
   const confirmBooking = () => {
     const id = "PYU-" + Math.random().toString(36).substring(2, 8).toUpperCase();
     setBookingId(id);
+    
+    // Send shuttle reminder (simulated confirmation)
+    sendNotification(
+      "shuttle_reminder",
+      "Shuttle Booking Confirmed",
+      `Your shuttle from ${from} to ${to} on ${date ? format(date, "MMM dd, yyyy") : ""} is confirmed.`,
+      { bookingId: id, from, to }
+    );
+
     createTransaction({
       amount: totalPrice,
       description: `Shuttle: ${from} → ${to}`,
