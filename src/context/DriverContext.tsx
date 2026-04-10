@@ -1,5 +1,7 @@
-import { createContext, useContext, useState, useCallback, ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from "react";
 import type { DriverStatus as ModelDriverStatus, LatLng } from "@/types/models";
+import { realtime } from "@/lib/realtime";
+import { useLocationBroadcast } from "@/hooks/use-realtime";
 
 export type DriverStatus = ModelDriverStatus;
 export type TripStatus = "idle" | "requesting" | "navigating_to_pickup" | "at_pickup" | "on_trip" | "completed";
@@ -28,6 +30,7 @@ interface DriverState {
   isAuthenticated: boolean;
   phone: string;
   driverName: string;
+  driverId: string;
   status: DriverStatus;
   tripStatus: TripStatus;
   currentRequest: RideRequest | null;
@@ -44,6 +47,8 @@ interface DriverState {
 }
 
 const DriverContext = createContext<DriverState>({} as DriverState);
+
+const DRIVER_ID = "driver-001";
 
 const MOCK_REQUESTS: RideRequest[] = [
   {
@@ -89,6 +94,32 @@ export function DriverProvider({ children }: { children: ReactNode }) {
     { id: "T-103", passengerName: "Maya Sari", pickup: "Blok M", dropoff: "Pondok Indah", fare: 45000, date: "2026-04-08", time: "14:00" },
   ]);
 
+  // Broadcast location when online and idle (not on active trip — trip page handles that)
+  useLocationBroadcast(
+    isAuthenticated ? DRIVER_ID : null,
+    status === "online" && tripStatus === "idle"
+  );
+
+  // Listen for dispatch requests from passenger tab
+  useEffect(() => {
+    if (status !== "online" || tripStatus !== "idle") return;
+
+    const unsub = realtime.subscribe("dispatch:request", (data) => {
+      setCurrentRequest({
+        id: data.requestId,
+        passengerName: data.passengerName,
+        pickup: data.pickup,
+        dropoff: data.dropoff,
+        estimatedFare: data.fare,
+        estimatedDistance: data.estimatedDistance,
+        estimatedDuration: data.estimatedDuration,
+      });
+      setTripStatus("requesting");
+    });
+
+    return unsub;
+  }, [status, tripStatus]);
+
   const login = useCallback((ph: string) => {
     setPhone(ph);
     setIsAuthenticated(true);
@@ -114,7 +145,8 @@ export function DriverProvider({ children }: { children: ReactNode }) {
   const simulateRequest = useCallback(() => {
     if (status !== "online" || tripStatus !== "idle") return;
     const req = MOCK_REQUESTS[Math.floor(Math.random() * MOCK_REQUESTS.length)];
-    setCurrentRequest({ ...req, id: `REQ-${Date.now()}` });
+    const request = { ...req, id: `REQ-${Date.now()}` };
+    setCurrentRequest(request);
     setTripStatus("requesting");
   }, [status, tripStatus]);
 
@@ -123,18 +155,40 @@ export function DriverProvider({ children }: { children: ReactNode }) {
     setCurrentTrip(currentRequest);
     setCurrentRequest(null);
     setTripStatus("navigating_to_pickup");
+
+    // Publish dispatch response
+    realtime.publish("dispatch:response", {
+      requestId: currentRequest.id,
+      accepted: true,
+      driverId: DRIVER_ID,
+    });
+
+    // Publish trip status
+    realtime.publish("trip:status", {
+      tripId: currentRequest.id,
+      status: "navigating_to_pickup",
+      timestamp: Date.now(),
+    });
   }, [currentRequest]);
 
   const rejectRide = useCallback(() => {
+    if (currentRequest) {
+      realtime.publish("dispatch:response", {
+        requestId: currentRequest.id,
+        accepted: false,
+        driverId: DRIVER_ID,
+      });
+    }
     setCurrentRequest(null);
     setTripStatus("idle");
-  }, []);
+  }, [currentRequest]);
 
   const advanceTrip = useCallback(() => {
     setTripStatus((prev) => {
+      let next: TripStatus = prev;
       switch (prev) {
-        case "navigating_to_pickup": return "at_pickup";
-        case "at_pickup": return "on_trip";
+        case "navigating_to_pickup": next = "at_pickup"; break;
+        case "at_pickup": next = "on_trip"; break;
         case "on_trip": {
           if (currentTrip) {
             const record: TripRecord = {
@@ -153,14 +207,27 @@ export function DriverProvider({ children }: { children: ReactNode }) {
               month: e.month + currentTrip.estimatedFare,
             }));
           }
-          return "completed";
+          next = "completed";
+          break;
         }
         case "completed": {
           setCurrentTrip(null);
-          return "idle";
+          next = "idle";
+          break;
         }
-        default: return prev;
+        default: break;
       }
+
+      // Publish status change via realtime
+      if (currentTrip && next !== prev) {
+        realtime.publish("trip:status", {
+          tripId: currentTrip.id,
+          status: next,
+          timestamp: Date.now(),
+        });
+      }
+
+      return next;
     });
   }, [currentTrip]);
 
@@ -170,6 +237,7 @@ export function DriverProvider({ children }: { children: ReactNode }) {
         isAuthenticated,
         phone,
         driverName: "Ahmad Fauzi",
+        driverId: DRIVER_ID,
         status,
         tripStatus,
         currentRequest,

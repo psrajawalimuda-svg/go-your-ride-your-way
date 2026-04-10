@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDriver } from "@/context/DriverContext";
 import { DriverLayout } from "@/components/driver/DriverLayout";
@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { MapPin, Navigation, User, Phone, MessageSquare, CheckCircle2 } from "lucide-react";
 import { motion } from "framer-motion";
+import { realtime } from "@/lib/realtime";
+import { generateRoutePoints } from "@/components/MapView";
 
 const STATUS_LABELS: Record<string, { label: string; action: string; color: string }> = {
   navigating_to_pickup: { label: "Navigating to pickup", action: "Arrived at Pickup", color: "bg-primary" },
@@ -17,12 +19,56 @@ const STATUS_LABELS: Record<string, { label: string; action: string; color: stri
 
 export default function DriverTrip() {
   const navigate = useNavigate();
-  const { isAuthenticated, tripStatus, currentTrip, advanceTrip } = useDriver();
+  const { isAuthenticated, driverId, tripStatus, currentTrip, advanceTrip } = useDriver();
+  const locationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const stepRef = useRef(0);
 
   useEffect(() => {
     if (!isAuthenticated) navigate("/driver/login");
     if (tripStatus === "idle" && !currentTrip) navigate("/driver/home");
   }, [isAuthenticated, tripStatus, currentTrip, navigate]);
+
+  // Broadcast driver location along route during active trip
+  useEffect(() => {
+    if (!currentTrip) return;
+
+    if (tripStatus === "navigating_to_pickup" || tripStatus === "on_trip") {
+      const start = tripStatus === "navigating_to_pickup"
+        ? [-6.2088, 106.8456] as [number, number] // driver's current approximate position
+        : currentTrip.pickup.coords;
+      const end = tripStatus === "navigating_to_pickup"
+        ? currentTrip.pickup.coords
+        : currentTrip.dropoff.coords;
+
+      const routePoints = generateRoutePoints(start, end, 40);
+      stepRef.current = 0;
+
+      locationIntervalRef.current = setInterval(() => {
+        if (stepRef.current < routePoints.length) {
+          realtime.publish("driver:location", {
+            driverId,
+            coords: routePoints[stepRef.current],
+            heading: stepRef.current > 0
+              ? Math.atan2(
+                  routePoints[stepRef.current][1] - routePoints[stepRef.current - 1][1],
+                  routePoints[stepRef.current][0] - routePoints[stepRef.current - 1][0]
+                ) * (180 / Math.PI)
+              : 0,
+            speed: 30 + Math.random() * 20,
+            timestamp: Date.now(),
+          });
+          stepRef.current++;
+        }
+      }, 2000);
+    }
+
+    return () => {
+      if (locationIntervalRef.current) {
+        clearInterval(locationIntervalRef.current);
+        locationIntervalRef.current = null;
+      }
+    };
+  }, [tripStatus, currentTrip, driverId]);
 
   if (!currentTrip) return null;
 

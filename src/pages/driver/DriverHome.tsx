@@ -6,8 +6,9 @@ import { MapView } from "@/components/MapView";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { MapPin, Navigation, Clock, DollarSign, X, Check, User, LogOut, BarChart3 } from "lucide-react";
+import { MapPin, Navigation, Clock, DollarSign, X, Check, User, LogOut, BarChart3, Wifi, WifiOff } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useConnectionStatus } from "@/hooks/use-realtime";
 
 export default function DriverHome() {
   const navigate = useNavigate();
@@ -16,14 +17,16 @@ export default function DriverHome() {
     toggleStatus, acceptRide, rejectRide, simulateRequest, logout,
   } = useDriver();
 
+  const connectionStatus = useConnectionStatus();
+
   useEffect(() => {
     if (!isAuthenticated) navigate("/driver/login");
   }, [isAuthenticated, navigate]);
 
-  // Simulate incoming requests when online
+  // Simulate incoming requests when online (fallback if no cross-tab dispatch)
   useEffect(() => {
     if (status !== "online" || tripStatus !== "idle") return;
-    const timer = setTimeout(() => simulateRequest(), 5000 + Math.random() * 10000);
+    const timer = setTimeout(() => simulateRequest(), 8000 + Math.random() * 12000);
     return () => clearTimeout(timer);
   }, [status, tripStatus, simulateRequest]);
 
@@ -54,9 +57,20 @@ export default function DriverHome() {
               </div>
               <div>
                 <p className="font-semibold text-sm text-foreground">{driverName}</p>
-                <p className={`text-xs font-medium ${status === "online" ? "text-primary" : "text-muted-foreground"}`}>
-                  {status === "online" ? "Online" : "Offline"}
-                </p>
+                <div className="flex items-center gap-1.5">
+                  <p className={`text-xs font-medium ${status === "online" ? "text-primary" : "text-muted-foreground"}`}>
+                    {status === "online" ? "Online" : "Offline"}
+                  </p>
+                  {status === "online" && (
+                    <span className="flex items-center gap-0.5">
+                      {connectionStatus === "connected" ? (
+                        <Wifi className="h-3 w-3 text-primary" />
+                      ) : (
+                        <WifiOff className="h-3 w-3 text-destructive" />
+                      )}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
             <div className="flex items-center gap-3">
