@@ -18,6 +18,8 @@ interface MapViewProps {
   nearbyDrivers?: [number, number][];
   onMapClick?: (latlng: [number, number]) => void;
   interactive?: boolean;
+  /** Streaming driver position from realtime — smoothly interpolates */
+  streamingDriverPosition?: [number, number] | null;
 }
 
 const DEFAULT_CENTER: [number, number] = [-6.2088, 106.8456];
@@ -87,6 +89,7 @@ export function MapView({
   nearbyDrivers,
   onMapClick,
   interactive = false,
+  streamingDriverPosition,
 }: MapViewProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
@@ -94,6 +97,7 @@ export function MapView({
   const pickupMarkerRef = useRef<L.Marker | null>(null);
   const destMarkerRef = useRef<L.Marker | null>(null);
   const routeLayerRef = useRef<L.LayerGroup | null>(null);
+  const streamingMarkerRef = useRef<L.Marker | null>(null);
 
   const locateUser = useCallback(() => {
     if (!("geolocation" in navigator) || !mapInstanceRef.current || !markerRef.current) return;
@@ -145,6 +149,7 @@ export function MapView({
       mapInstanceRef.current = null;
       markerRef.current = null;
       routeLayerRef.current = null;
+      streamingMarkerRef.current = null;
     };
   }, []);
 
@@ -215,6 +220,42 @@ export function MapView({
 
     return () => clearInterval(interval);
   }, [animateMarker, pickupPosition, destinationPosition, showRoute]);
+
+  // Streaming driver position — smooth interpolation via realtime
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+
+    if (streamingDriverPosition) {
+      if (!streamingMarkerRef.current) {
+        streamingMarkerRef.current = L.marker(streamingDriverPosition, { icon: driverIcon }).addTo(map);
+      } else {
+        // Smooth interpolation: animate from current to new position
+        const currentLatLng = streamingMarkerRef.current.getLatLng();
+        const startLat = currentLatLng.lat;
+        const startLng = currentLatLng.lng;
+        const endLat = streamingDriverPosition[0];
+        const endLng = streamingDriverPosition[1];
+        const steps = 20;
+        let frame = 0;
+
+        const animate = () => {
+          frame++;
+          const t = frame / steps;
+          const lat = startLat + (endLat - startLat) * t;
+          const lng = startLng + (endLng - startLng) * t;
+          streamingMarkerRef.current?.setLatLng([lat, lng]);
+          if (frame < steps) {
+            requestAnimationFrame(animate);
+          }
+        };
+        requestAnimationFrame(animate);
+      }
+    } else if (streamingMarkerRef.current) {
+      map.removeLayer(streamingMarkerRef.current);
+      streamingMarkerRef.current = null;
+    }
+  }, [streamingDriverPosition]);
 
   return (
     <div className={cn("w-full h-full z-0 relative", className)}>

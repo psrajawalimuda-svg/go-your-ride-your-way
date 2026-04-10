@@ -9,6 +9,7 @@ import { useNavigate } from "react-router-dom";
 import { useRide, type RideStatus } from "@/context/RideContext";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { useDriverTracking, useTripStatus } from "@/hooks/use-realtime";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,6 +22,7 @@ import {
 } from "@/components/ui/alert-dialog";
 
 const DRIVER = {
+  id: "driver-001",
   name: "Ahmad Rizki",
   initials: "AR",
   vehicle: "Toyota Avanza",
@@ -43,6 +45,36 @@ export default function RideTracking() {
   const [etaSeconds, setEtaSeconds] = useState(0);
   const [driverPos, setDriverPos] = useState<[number, number]>(pickupPos);
   const stepRef = useRef(0);
+
+  // Subscribe to realtime driver location
+  const { position: realtimeDriverPos } = useDriverTracking(
+    status === "arriving" || status === "on_trip" ? DRIVER.id : null
+  );
+
+  // Subscribe to realtime trip status from driver
+  const realtimeTripStatus = useTripStatus("current-trip");
+
+  // Update driver position from realtime when available
+  useEffect(() => {
+    if (realtimeDriverPos) {
+      setDriverPos(realtimeDriverPos);
+    }
+  }, [realtimeDriverPos]);
+
+  // React to realtime trip status updates from driver tab
+  useEffect(() => {
+    if (!realtimeTripStatus) return;
+    const statusMap: Record<string, RideStatus> = {
+      navigating_to_pickup: "arriving",
+      at_pickup: "arriving",
+      on_trip: "on_trip",
+      completed: "completed",
+    };
+    const mapped = statusMap[realtimeTripStatus];
+    if (mapped && mapped !== status) {
+      setStatus(mapped);
+    }
+  }, [realtimeTripStatus]);
 
   // Search timeout
   useEffect(() => {
@@ -85,7 +117,10 @@ export default function RideTracking() {
     const interval = setInterval(() => {
       stepRef.current++;
       if (stepRef.current < routePoints.length) {
-        setDriverPos(routePoints[stepRef.current]);
+        // Use realtime position if available, else simulate
+        if (!realtimeDriverPos) {
+          setDriverPos(routePoints[stepRef.current]);
+        }
         setEtaSeconds(routePoints.length - stepRef.current);
       } else {
         clearInterval(interval);
@@ -125,9 +160,10 @@ export default function RideTracking() {
             pickupPosition={pickupPos}
             destinationPosition={destPos}
             showRoute
-            animateMarker={status === "on_trip"}
+            animateMarker={status === "on_trip" && !realtimeDriverPos}
             showLocateButton={false}
-            markerPosition={status === "on_trip" ? driverPos : undefined}
+            markerPosition={status === "on_trip" || status === "arriving" ? driverPos : undefined}
+            streamingDriverPosition={realtimeDriverPos}
           />
         </div>
 
@@ -299,6 +335,14 @@ export default function RideTracking() {
 }
 
 function DriverCard({ showActions = false }: { showActions?: boolean }) {
+  const DRIVER = {
+    name: "Ahmad Rizki",
+    initials: "AR",
+    vehicle: "Toyota Avanza",
+    plate: "B 1234 XYZ",
+    rating: 4.9,
+  };
+
   return (
     <div className="flex items-center gap-3 p-4 bg-card rounded-2xl border border-border">
       <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-lg font-bold text-primary">
