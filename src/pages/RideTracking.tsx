@@ -52,7 +52,7 @@ export default function RideTracking() {
   );
 
   // Subscribe to realtime trip status from driver
-  const realtimeTripStatus = useTripStatus(ride.id || null);
+  const realtimeTripStatus = useTripStatus("current-trip");
 
   // Update driver position from realtime when available
   useEffect(() => {
