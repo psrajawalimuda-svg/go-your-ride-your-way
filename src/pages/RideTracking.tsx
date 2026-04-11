@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { ArrowLeft, Phone, MessageCircle, Star, Shield, Navigation, X, RefreshCw, Loader2, Clock, MapPin } from "lucide-react";
 import { MobileLayout } from "@/components/layout/MobileLayout";
 import { Button } from "@/components/ui/button";
@@ -7,9 +7,8 @@ import { MapView, generateRoutePoints } from "@/components/MapView";
 import { RideBottomSheet } from "@/components/ride/RideBottomSheet";
 import { useNavigate } from "react-router-dom";
 import { useRide, type RideStatus } from "@/context/RideContext";
-import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { useDriverTracking, useTripStatus } from "@/hooks/use-realtime";
+import { useDriverTracking, useTripStatus, useNearbyDrivers } from "@/hooks/use-realtime";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,38 +20,37 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-const DRIVER = {
-  id: "driver-001",
-  name: "Ahmad Rizki",
-  initials: "AR",
-  vehicle: "Toyota Avanza",
-  plate: "B 1234 XYZ",
-  rating: 4.9,
-};
-
 const SEARCH_TIMEOUT = 15000;
 
 export default function RideTracking() {
   const navigate = useNavigate();
-  const { ride, setRide, resetRide } = useRide();
+  const { ride, setRide, resetRide, requestRide } = useRide();
 
   const pickupPos = ride.pickup.latlng || [-6.2088, 106.8456] as [number, number];
   const destPos = ride.destination.latlng || [-6.1751, 106.8650] as [number, number];
 
-  const [status, setStatus] = useState<RideStatus>(ride.status === "searching" ? "searching" : "searching");
+  const [status, setStatus] = useState<RideStatus>(ride.status);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [rating, setRating] = useState(0);
   const [etaSeconds, setEtaSeconds] = useState(0);
   const [driverPos, setDriverPos] = useState<[number, number]>(pickupPos);
   const stepRef = useRef(0);
 
+  // Use matched driver from dispatch
+  const matchedDriver = ride.driver;
+  const driverId = matchedDriver?.id || null;
+
   // Subscribe to realtime driver location
   const { position: realtimeDriverPos } = useDriverTracking(
-    status === "arriving" || status === "on_trip" ? DRIVER.id : null
+    status === "arriving" || status === "on_trip" ? driverId : null
   );
 
   // Subscribe to realtime trip status from driver
-  const realtimeTripStatus = useTripStatus("current-trip");
+  const realtimeTripStatus = useTripStatus(ride.tripId);
+
+  // Nearby drivers for searching phase
+  const nearbyDrivers = useNearbyDrivers();
+  const nearbyPositions = nearbyDrivers.map((d) => d.coords as [number, number]);
 
   // Update driver position from realtime when available
   useEffect(() => {
@@ -76,13 +74,23 @@ export default function RideTracking() {
     }
   }, [realtimeTripStatus]);
 
-  // Search timeout
+  // Sync ride context status changes (from dispatch)
+  useEffect(() => {
+    if (ride.status === "found" && status === "searching") {
+      setStatus("found");
+    } else if (ride.status === "timeout" && status === "searching") {
+      setStatus("timeout");
+    }
+  }, [ride.status]);
+
+  // Trigger dispatch when entering searching state
   useEffect(() => {
     if (status !== "searching") return;
-    const timer = setTimeout(() => setStatus("timeout"), SEARCH_TIMEOUT);
-    // Simulate finding driver after 4s
-    const findTimer = setTimeout(() => setStatus("found"), 4000);
-    return () => { clearTimeout(timer); clearTimeout(findTimer); };
+    // If ride is already searching (from RideBooking), dispatch was already triggered
+    // If retrying, trigger dispatch again
+    if (ride.status !== "searching") {
+      requestRide();
+    }
   }, [status]);
 
   // Found → arriving after 3s
@@ -117,7 +125,6 @@ export default function RideTracking() {
     const interval = setInterval(() => {
       stepRef.current++;
       if (stepRef.current < routePoints.length) {
-        // Use realtime position if available, else simulate
         if (!realtimeDriverPos) {
           setDriverPos(routePoints[stepRef.current]);
         }
@@ -131,7 +138,10 @@ export default function RideTracking() {
     return () => clearInterval(interval);
   }, [status, pickupPos, destPos]);
 
-  const handleRetry = () => setStatus("searching");
+  const handleRetry = () => {
+    setStatus("searching");
+    requestRide();
+  };
   const handleCancel = () => { resetRide(); navigate("/home"); };
 
   const formatEta = (s: number) => {
@@ -164,6 +174,7 @@ export default function RideTracking() {
             showLocateButton={false}
             markerPosition={status === "on_trip" || status === "arriving" ? driverPos : undefined}
             streamingDriverPosition={realtimeDriverPos}
+            nearbyDrivers={status === "searching" ? nearbyPositions : undefined}
           />
         </div>
 
@@ -228,7 +239,7 @@ export default function RideTracking() {
               <div className="text-center">
                 <p className="text-lg font-bold">{statusLabel.found}</p>
               </div>
-              <DriverCard />
+              <DriverCard driver={matchedDriver} />
             </div>
           )}
 
@@ -241,7 +252,7 @@ export default function RideTracking() {
                   <Clock className="h-3.5 w-3.5" /> ETA: {formatEta(etaSeconds)}
                 </p>
               </div>
-              <DriverCard showActions />
+              <DriverCard driver={matchedDriver} showActions />
               <Button variant="destructive" className="w-full h-12 rounded-2xl font-bold" onClick={() => setShowCancelDialog(true)}>
                 Cancel Ride
               </Button>
@@ -263,7 +274,7 @@ export default function RideTracking() {
                   <p className="text-xs text-muted-foreground">remaining</p>
                 </div>
               </div>
-              <DriverCard showActions />
+              <DriverCard driver={matchedDriver} showActions />
               <Card className="p-3 rounded-2xl flex items-center justify-between">
                 <span className="text-sm font-semibold">Estimated fare</span>
                 <span className="text-lg font-bold text-primary">{ride.fare}</span>
@@ -279,7 +290,7 @@ export default function RideTracking() {
                   <Star className="h-8 w-8 text-primary" />
                 </div>
                 <p className="text-lg font-bold">{statusLabel.completed}</p>
-                <p className="text-sm text-muted-foreground">Rate your trip with {DRIVER.name}</p>
+                <p className="text-sm text-muted-foreground">Rate your trip with {matchedDriver?.name || "your driver"}</p>
                 <div className="flex justify-center gap-2 py-2">
                   {[1, 2, 3, 4, 5].map((s) => (
                     <button key={s} onClick={() => setRating(s)}>
@@ -334,26 +345,25 @@ export default function RideTracking() {
   );
 }
 
-function DriverCard({ showActions = false }: { showActions?: boolean }) {
-  const DRIVER = {
-    name: "Ahmad Rizki",
-    initials: "AR",
-    vehicle: "Toyota Avanza",
-    plate: "B 1234 XYZ",
-    rating: 4.9,
-  };
+interface DriverCardProps {
+  driver: { name: string; initials: string; vehicle: string; plate: string; rating: number } | null;
+  showActions?: boolean;
+}
+
+function DriverCard({ driver, showActions = false }: DriverCardProps) {
+  const d = driver || { name: "Driver", initials: "D", vehicle: "Vehicle", plate: "---", rating: 5.0 };
 
   return (
     <div className="flex items-center gap-3 p-4 bg-card rounded-2xl border border-border">
       <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-lg font-bold text-primary">
-        {DRIVER.initials}
+        {d.initials}
       </div>
       <div className="flex-1">
-        <p className="font-bold">{DRIVER.name}</p>
-        <p className="text-xs text-muted-foreground">{DRIVER.vehicle} • {DRIVER.plate}</p>
+        <p className="font-bold">{d.name}</p>
+        <p className="text-xs text-muted-foreground">{d.vehicle} • {d.plate}</p>
         <div className="flex items-center gap-1 mt-0.5">
           <Star className="h-3 w-3 fill-accent text-accent" />
-          <span className="text-xs font-semibold">{DRIVER.rating}</span>
+          <span className="text-xs font-semibold">{d.rating}</span>
         </div>
       </div>
       {showActions && (

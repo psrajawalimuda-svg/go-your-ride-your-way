@@ -10,11 +10,11 @@ import { motion } from "framer-motion";
 import { realtime } from "@/lib/realtime";
 import { generateRoutePoints } from "@/components/MapView";
 
-const STATUS_LABELS: Record<string, { label: string; action: string; color: string }> = {
-  navigating_to_pickup: { label: "Navigating to pickup", action: "Arrived at Pickup", color: "bg-primary" },
-  at_pickup: { label: "Waiting for passenger", action: "Start Trip", color: "bg-primary" },
-  on_trip: { label: "Trip in progress", action: "Complete Trip", color: "bg-primary" },
-  completed: { label: "Trip completed!", action: "Back to Home", color: "bg-primary" },
+const STATUS_LABELS: Record<string, { label: string; action: string }> = {
+  navigating_to_pickup: { label: "Navigating to pickup", action: "Arrived at Pickup" },
+  at_pickup: { label: "Waiting for passenger", action: "Start Trip" },
+  on_trip: { label: "Trip in progress", action: "Complete Trip" },
+  completed: { label: "Trip completed!", action: "Back to Home" },
 };
 
 export default function DriverTrip() {
@@ -28,33 +28,37 @@ export default function DriverTrip() {
     if (tripStatus === "idle" && !currentTrip) navigate("/driver/home");
   }, [isAuthenticated, tripStatus, currentTrip, navigate]);
 
-  // Broadcast driver location along route during active trip
+  // Broadcast driver location along route during active trip — finer-grained, 2s intervals
   useEffect(() => {
     if (!currentTrip) return;
 
     if (tripStatus === "navigating_to_pickup" || tripStatus === "on_trip") {
       const start = tripStatus === "navigating_to_pickup"
-        ? [-6.2088, 106.8456] as [number, number] // driver's current approximate position
+        ? [-6.2088, 106.8456] as [number, number]
         : currentTrip.pickup.coords;
       const end = tripStatus === "navigating_to_pickup"
         ? currentTrip.pickup.coords
         : currentTrip.dropoff.coords;
 
-      const routePoints = generateRoutePoints(start, end, 40);
+      const routePoints = generateRoutePoints(start, end, 80);
       stepRef.current = 0;
 
       locationIntervalRef.current = setInterval(() => {
         if (stepRef.current < routePoints.length) {
+          // Variable speed: slower near turns
+          const speed = 25 + Math.random() * 35;
+          const heading = stepRef.current > 0
+            ? Math.atan2(
+                routePoints[stepRef.current][1] - routePoints[stepRef.current - 1][1],
+                routePoints[stepRef.current][0] - routePoints[stepRef.current - 1][0]
+              ) * (180 / Math.PI)
+            : 0;
+
           realtime.publish("driver:location", {
             driverId,
             coords: routePoints[stepRef.current],
-            heading: stepRef.current > 0
-              ? Math.atan2(
-                  routePoints[stepRef.current][1] - routePoints[stepRef.current - 1][1],
-                  routePoints[stepRef.current][0] - routePoints[stepRef.current - 1][0]
-                ) * (180 / Math.PI)
-              : 0,
-            speed: 30 + Math.random() * 20,
+            heading,
+            speed,
             timestamp: Date.now(),
           });
           stepRef.current++;
@@ -122,7 +126,6 @@ export default function DriverTrip() {
               </div>
             ) : (
               <>
-                {/* Passenger info */}
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
@@ -143,7 +146,6 @@ export default function DriverTrip() {
                   </div>
                 </div>
 
-                {/* Route info */}
                 <div className="space-y-2 mb-5">
                   <div className="flex items-center gap-3 p-2 rounded-lg bg-secondary/50">
                     <MapPin className="h-4 w-4 text-primary shrink-0" />

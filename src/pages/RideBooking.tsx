@@ -1,17 +1,18 @@
 import { useState, useCallback, useMemo } from "react";
-import { ArrowLeft, MapPin, Navigation, Clock, Car, Bike, CreditCard, Wallet, Crosshair, Loader2, Search } from "lucide-react";
+import { ArrowLeft, MapPin, Navigation, Clock, Car, Bike, Truck, CreditCard, Wallet, Crosshair, Loader2, Search } from "lucide-react";
 import { useGeocoding, type GeocodingResult } from "@/hooks/use-geocoding";
 import { MobileLayout } from "@/components/layout/MobileLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { MapView } from "@/components/MapView";
 import { RideBottomSheet } from "@/components/ride/RideBottomSheet";
 import { useRide } from "@/context/RideContext";
 import { usePayment } from "@/context/PaymentContext";
+import { useNearbyDrivers } from "@/hooks/use-realtime";
+import { dispatch } from "@/lib/dispatch";
 
 const vehicles = [
   { id: "bike" as const, icon: Bike, label: "PYU Bike", eta: "3 min", price: "Rp 8,000", desc: "Affordable motorcycle ride" },
@@ -46,13 +47,24 @@ export default function RideBooking() {
   const { results: geocodeResults, loading: geocodeLoading } = useGeocoding(searchQuery);
   const displayResults = geocodeResults.length > 0 ? geocodeResults : defaultSuggestions;
 
-  const nearbyDrivers = useMemo<[number, number][]>(() => {
+  // Initialize dispatch engine for simulated drivers
+  useEffect(() => {
+    dispatch.init();
+  }, []);
+
+  // Live nearby drivers from realtime
+  const realtimeDrivers = useNearbyDrivers();
+  const nearbyDriverPositions = useMemo<[number, number][]>(() => {
+    if (realtimeDrivers.length > 0) {
+      return realtimeDrivers.map((d) => d.coords as [number, number]);
+    }
+    // Fallback: static positions until dispatch engine starts broadcasting
     const base = pickupPos || [-6.2088, 106.8456];
     return Array.from({ length: 5 }, () => [
       base[0] + (Math.random() - 0.5) * 0.02,
       base[1] + (Math.random() - 0.5) * 0.02,
     ] as [number, number]);
-  }, [pickupPos]);
+  }, [realtimeDrivers, pickupPos]);
 
   const handleMapClick = useCallback((latlng: [number, number]) => {
     if (pickingField === "pickup") {
@@ -133,7 +145,7 @@ export default function RideBooking() {
             pickupPosition={pickupPos || undefined}
             destinationPosition={destPos || undefined}
             showRoute={!!pickupPos && !!destPos}
-            nearbyDrivers={nearbyDrivers}
+            nearbyDrivers={nearbyDriverPositions}
             showLocateButton={false}
           />
         </div>
@@ -157,7 +169,6 @@ export default function RideBooking() {
         <RideBottomSheet animationKey={step}>
           {step === "location" && (
             <div className="space-y-4">
-              {/* Location inputs */}
               <div className="bg-card rounded-2xl p-4 border border-border space-y-3">
                 <div className="flex items-center gap-3">
                   <div className="flex flex-col items-center gap-1">
@@ -230,7 +241,6 @@ export default function RideBooking() {
 
           {step === "fare" && (
             <div className="space-y-4">
-              {/* Route summary */}
               <Card className="p-4 rounded-2xl border-primary/20">
                 <div className="flex items-center gap-3 text-sm">
                   <div className="flex flex-col items-center gap-1">
@@ -249,7 +259,6 @@ export default function RideBooking() {
                 </div>
               </Card>
 
-              {/* Vehicles */}
               <div className="space-y-2 max-h-[35vh] overflow-y-auto">
                 {vehicles.map((v) => (
                   <button
@@ -316,7 +325,6 @@ export default function RideBooking() {
                 </div>
               </Card>
 
-              {/* Payment */}
               <div className="flex items-center gap-3 p-3 bg-card rounded-2xl border border-border">
                 {payment === "cash" ? (
                   <Wallet className="h-5 w-5 text-primary" />
