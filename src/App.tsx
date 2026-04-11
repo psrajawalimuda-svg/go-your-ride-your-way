@@ -33,6 +33,7 @@ import AdminTrips from "./pages/admin/AdminTrips";
 import AdminShuttle from "./pages/admin/AdminShuttle";
 import AdminPayments from "./pages/admin/AdminPayments";
 import AdminPromos from "./pages/admin/AdminPromos";
+import AdminSettings from "./pages/admin/AdminSettings";
 
 const queryClient = new QueryClient();
 
