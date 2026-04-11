@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { Navigation, Car, Bike, Bus, ChevronRight, Star, Clock, Plane, Building2, X, Gift, Percent, Users, Sparkles } from "lucide-react";
 import { MobileLayout } from "@/components/layout/MobileLayout";
 import { MapView } from "@/components/MapView";
@@ -9,6 +9,8 @@ import { Button } from "@/components/ui/button";
 import { useRide } from "@/context/RideContext";
 import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from "@/components/ui/carousel";
 import Autoplay from "embla-carousel-autoplay";
+import { useActivePromos, useRideFareConfig } from "@/hooks/use-app-data";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const serviceOptions = [
   { id: "bike", icon: Bike, label: "Bike", color: "bg-blue-100" },
@@ -18,23 +20,17 @@ const serviceOptions = [
   { id: "hotel", icon: Building2, label: "Hotel", color: "bg-orange-100" },
 ];
 
-const vehicleTypes = [
-  { id: "bike", icon: Bike, label: "Bike", eta: "3 min", price: "Rp 8K" },
-  { id: "car", icon: Car, label: "Car", eta: "5 min", price: "Rp 25K" },
-  { id: "premium", icon: Car, label: "Premium", eta: "7 min", price: "Rp 45K" },
-  { id: "womenbike", icon: Bike, label: "Women Bike", eta: "5 min", price: "Rp 15K" },
-];
+const promoIcons: Record<string, any> = {
+  "NEW USER": Percent,
+  "CASHBACK": Gift,
+  "FRIDAY": Sparkles,
+  "WEEKEND": Users,
+  "VOUCHER": Gift,
+};
 
 const recentPlaces = [
   { name: "Office - Sudirman Tower", address: "Jl. Jend. Sudirman No. 52", icon: Clock },
   { name: "Home", address: "Jl. Kemang Raya No. 15", icon: Star },
-];
-
-const promoSlides = [
-  { title: "50% Off First Ride!", subtitle: "Use code WELCOME50", icon: Percent, bg: "from-purple-500 to-indigo-600" },
-  { title: "Refer & Earn Rp 50K", subtitle: "Invite friends, get rewards", icon: Users, bg: "from-blue-500 to-cyan-500" },
-  { title: "New! Airport Express", subtitle: "Fixed fare, no surge pricing", icon: Sparkles, bg: "from-emerald-500 to-teal-600" },
-  { title: "Weekend Bonus", subtitle: "2x points on all rides", icon: Gift, bg: "from-orange-500 to-red-500" },
 ];
 
 export default function Index() {
@@ -43,6 +39,30 @@ export default function Index() {
   const [showRideNowServices, setShowRideNowServices] = useState(false);
   const [carouselApi, setCarouselApi] = useState<CarouselApi>();
   const [currentSlide, setCurrentSlide] = useState(0);
+
+  const { data: promos, isLoading: promosLoading } = useActivePromos();
+  const { data: fareConfig } = useRideFareConfig();
+
+  const vehicleTypes = useMemo(() => {
+    if (!fareConfig) return [];
+    return fareConfig.map((v) => ({
+      id: v.vehicle_type,
+      icon: v.icon_type === "bike" ? Bike : Car,
+      label: v.label,
+      eta: `${v.eta_multiplier} min`,
+      price: `Rp ${(v.base_fare / 1000).toFixed(0)}K`,
+    }));
+  }, [fareConfig]);
+
+  const promoSlides = useMemo(() => {
+    if (!promos) return [];
+    return promos.map((p) => ({
+      title: p.title,
+      subtitle: p.subtitle,
+      icon: promoIcons[p.badge || ""] || Gift,
+      bg: p.gradient,
+    }));
+  }, [promos]);
 
   useEffect(() => {
     if (!carouselApi) return;
@@ -64,7 +84,6 @@ export default function Index() {
   return (
     <MobileLayout>
       <div className="relative">
-        {/* Map header */}
         <div className="h-[38vh] relative overflow-hidden">
           <MapView useGeolocation showLocateButton />
           <div className="absolute top-4 left-4 right-4 flex items-center justify-between z-[1000]">
@@ -75,11 +94,9 @@ export default function Index() {
           </div>
         </div>
 
-        {/* Bottom sheet */}
         <div className="relative -mt-6 rounded-t-3xl bg-background px-4 pt-5 pb-4 space-y-5 z-10">
           <div className="w-10 h-1 rounded-full bg-border mx-auto" />
 
-          {/* Search bar */}
           <button
             onClick={() => navigate("/ride/book")}
             className="w-full flex items-center gap-3 bg-card rounded-2xl p-4 shadow-sm border border-border hover:border-primary/30 transition-colors"
@@ -93,7 +110,6 @@ export default function Index() {
             <ChevronRight className="h-4 w-4 text-muted-foreground" />
           </button>
 
-          {/* Two main entry cards */}
           <div className="grid grid-cols-2 gap-3">
             <Card
               className="p-4 rounded-2xl cursor-pointer hover:border-primary/30 transition-colors"
@@ -123,39 +139,50 @@ export default function Index() {
           {/* Promo Carousel */}
           <div>
             <h3 className="text-sm font-bold mb-2">Promo & Offers</h3>
-            <Carousel
-              setApi={setCarouselApi}
-              opts={{ loop: true }}
-              plugins={[Autoplay({ delay: 4000, stopOnInteraction: false })]}
-              className="w-full"
-            >
-              <CarouselContent className="-ml-2">
-                {promoSlides.map((slide, i) => (
-                  <CarouselItem key={i} className="pl-2">
-                    <div className={`bg-gradient-to-r ${slide.bg} rounded-2xl p-4 text-white flex items-center gap-3 min-h-[88px]`}>
-                      <div className="p-2.5 bg-white/20 rounded-xl backdrop-blur-sm">
-                        <slide.icon className="h-6 w-6" />
-                      </div>
-                      <div className="flex-1">
-                        <h4 className="font-extrabold text-sm">{slide.title}</h4>
-                        <p className="text-xs text-white/80 mt-0.5">{slide.subtitle}</p>
-                      </div>
-                      <ChevronRight className="h-4 w-4 text-white/60" />
-                    </div>
-                  </CarouselItem>
-                ))}
-              </CarouselContent>
-            </Carousel>
-            <div className="flex justify-center gap-1.5 mt-2">
-              {promoSlides.map((_, i) => (
-                <button
-                  key={i}
-                  onClick={() => carouselApi?.scrollTo(i)}
-                  className={`h-1.5 rounded-full transition-all ${i === currentSlide ? "w-4 bg-primary" : "w-1.5 bg-border"}`}
-                />
-              ))}
-            </div>
+            {promosLoading ? (
+              <Skeleton className="h-[88px] w-full rounded-2xl" />
+            ) : promoSlides.length > 0 ? (
+              <>
+                <Carousel
+                  setApi={setCarouselApi}
+                  opts={{ loop: true }}
+                  plugins={[Autoplay({ delay: 4000, stopOnInteraction: false })]}
+                  className="w-full"
+                >
+                  <CarouselContent className="-ml-2">
+                    {promoSlides.map((slide, i) => (
+                      <CarouselItem key={i} className="pl-2">
+                        <div className={`bg-gradient-to-r ${slide.bg} rounded-2xl p-4 text-white flex items-center gap-3 min-h-[88px]`}>
+                          <div className="p-2.5 bg-white/20 rounded-xl backdrop-blur-sm">
+                            <slide.icon className="h-6 w-6" />
+                          </div>
+                          <div className="flex-1">
+                            <h4 className="font-extrabold text-sm">{slide.title}</h4>
+                            <p className="text-xs text-white/80 mt-0.5">{slide.subtitle}</p>
+                          </div>
+                          <ChevronRight className="h-4 w-4 text-white/60" />
+                        </div>
+                      </CarouselItem>
+                    ))}
+                  </CarouselContent>
+                </Carousel>
+                <div className="flex justify-center gap-1.5 mt-2">
+                  {promoSlides.map((_, i) => (
+                    <button
+                      key={i}
+                      onClick={() => carouselApi?.scrollTo(i)}
+                      className={`h-1.5 rounded-full transition-all ${i === currentSlide ? "w-4 bg-primary" : "w-1.5 bg-border"}`}
+                    />
+                  ))}
+                </div>
+              </>
+            ) : (
+              <Card className="p-4 rounded-2xl text-center text-sm text-muted-foreground">
+                No active promos
+              </Card>
+            )}
           </div>
+
           {/* Recent places */}
           <div>
             <h3 className="text-sm font-bold mb-2">Recent Places</h3>

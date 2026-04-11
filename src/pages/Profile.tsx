@@ -4,6 +4,8 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import { useTheme } from "@/hooks/use-theme";
+import { useProfileStats } from "@/hooks/use-app-data";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const menuItems = [
   { icon: CreditCard, label: "Payment Methods", desc: "Manage cards & wallets" },
@@ -15,11 +17,17 @@ const menuItems = [
 
 export default function Profile() {
   const { theme, toggleTheme } = useTheme();
+  const { data: stats, isLoading } = useProfileStats();
+
+  const statItems = [
+    { label: "Rides", value: stats?.rides ?? 0 },
+    { label: "Shuttles", value: stats?.shuttles ?? 0 },
+    { label: "Rating", value: "4.9" },
+  ];
 
   return (
     <MobileLayout>
       <div className="px-4 pt-6 space-y-5">
-        {/* Profile header */}
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
           <Card className="p-5 rounded-2xl">
             <div className="flex items-center gap-4">
@@ -37,21 +45,19 @@ export default function Profile() {
           </Card>
         </motion.div>
 
-        {/* Stats */}
         <div className="grid grid-cols-3 gap-2">
-          {[
-            { label: "Rides", value: "24" },
-            { label: "Shuttles", value: "8" },
-            { label: "Rating", value: "4.9" },
-          ].map((stat) => (
+          {statItems.map((stat) => (
             <Card key={stat.label} className="p-3 rounded-2xl text-center">
-              <p className="text-xl font-extrabold text-primary">{stat.value}</p>
+              {isLoading ? (
+                <Skeleton className="h-7 w-10 mx-auto" />
+              ) : (
+                <p className="text-xl font-extrabold text-primary">{stat.value}</p>
+              )}
               <p className="text-xs text-muted-foreground font-medium">{stat.label}</p>
             </Card>
           ))}
         </div>
 
-        {/* Theme toggle */}
         <button
           onClick={toggleTheme}
           className="w-full flex items-center gap-3 p-3.5 rounded-xl hover:bg-secondary/60 transition-colors"
@@ -70,7 +76,6 @@ export default function Profile() {
           <ChevronRight className="h-4 w-4 text-muted-foreground" />
         </button>
 
-        {/* Menu */}
         <div className="space-y-1">
           {menuItems.map((item, i) => (
             <motion.button
