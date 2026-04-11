@@ -145,6 +145,28 @@ export const useUpdateVehicleClass = () => {
   });
 };
 
+export const useUpsertDeparture = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (dep: { id?: string; batch_label: string; departure_time: string; arrival_time: string; route_id: string; driver_count: number; active: boolean }) => {
+      const { error } = await supabase.from("shuttle_departures").upsert(dep as any);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "shuttle_departures"] }),
+  });
+};
+
+export const useDeleteDeparture = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("shuttle_departures").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "shuttle_departures"] }),
+  });
+};
+
 export const useAdminTransactions = () =>
   useQuery({
     queryKey: ["admin", "transactions"],
