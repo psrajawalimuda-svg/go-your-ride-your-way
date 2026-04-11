@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Navigation, Car, Bike, Bus, ChevronRight, Star, Clock, Plane, Building2, X } from "lucide-react";
+import { useState, useCallback, useEffect } from "react";
+import { Navigation, Car, Bike, Bus, ChevronRight, Star, Clock, Plane, Building2, X, Gift, Percent, Users, Sparkles } from "lucide-react";
 import { MobileLayout } from "@/components/layout/MobileLayout";
 import { MapView } from "@/components/MapView";
 import { Card } from "@/components/ui/card";
@@ -7,6 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useRide } from "@/context/RideContext";
+import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from "@/components/ui/carousel";
+import Autoplay from "embla-carousel-autoplay";
 
 const serviceOptions = [
   { id: "bike", icon: Bike, label: "Bike", color: "bg-blue-100" },
