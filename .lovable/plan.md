@@ -1,34 +1,33 @@
 
 
-## Plan: Fix Leaflet Bug & Add Dynamic Price/Distance Calculation
+## Plan: Driver ETA & Reverse Geocoding
 
-### Summary
-The ride booking flow is already fully built (location picking, vehicle selection, confirmation, trip lifecycle with live tracking). This plan fixes the runtime crash and adds dynamic distance-based pricing to replace hardcoded values.
+### What Changes
 
-### Changes
+1. **Reverse geocoding hook** — new `useReverseGeocoding` hook that converts lat/lng to a readable address via Nominatim's `/reverse` endpoint
+2. **Driver ETA calculation** — compute nearest driver distance from pickup, show dynamic ETA per vehicle type instead of static "3 min" / "5 min"
+3. **Readable addresses on map tap** — when user taps the map or uses "My Location", reverse geocode the coordinates to show a street name instead of raw `"-6.2088, 106.8456"`
 
-**1. Fix Leaflet crash in `src/components/MapView.tsx`**
-- The `_leaflet_pos` error occurs when the geolocation callback fires after the map component unmounts
-- Add a guard: check `mapInstanceRef.current` is still valid before calling `setView` or `setLatLng` in the geolocation callback
-- Same fix for the `locateUser` callback
+### Implementation
 
-**2. Add dynamic distance/price calculation in `src/pages/RideBooking.tsx`**
-- Import `haversineDistance` from `src/lib/dispatch.ts`
-- Calculate real distance between pickup and destination using Haversine
-- Estimate duration based on average speed (~20 km/h city driving)
-- Compute dynamic fares per vehicle type using base fare + per-km rate:
-  - Bike: Rp 2,000 base + Rp 1,500/km
-  - Car: Rp 5,000 base + Rp 4,000/km  
-  - Premium: Rp 10,000 base + Rp 7,000/km
-  - Women Bike: Rp 3,000 base + Rp 2,000/km
-- Replace hardcoded "~5.2 km / ~15 min" in the fare step with calculated values
-- Update vehicle price display with computed fares
-- Pass the calculated fare to `setRide` on booking
+**New: `src/hooks/use-reverse-geocoding.ts`**
+- Accept `latlng: [number, number] | null`
+- Debounce 500ms, call Nominatim `/reverse?lat=...&lon=...&format=json`
+- Return `{ name, address, loading }`
+- Abort previous request on new coordinates
+
+**Modify: `src/pages/RideBooking.tsx`**
+- Import `useReverseGeocoding`
+- Call it twice: once for pickup coords, once for destination coords
+- When reverse geocode resolves, update `pickupName` / `destName` with the readable address (only when the name is currently raw coordinates)
+- Compute `nearestDriverKm` from `nearbyDriverPositions` using `haversineDistance` to pickup
+- Replace static `eta` in `VEHICLE_CONFIG` with dynamic calculation: `Math.max(1, Math.ceil(nearestDriverKm * 3))` min for bike, `* 4` for car, `* 5` for premium
+- Show the dynamic ETA in the vehicle selection cards
 
 ### Files
 
 | Action | File |
 |--------|------|
-| Modify | `src/components/MapView.tsx` — guard geolocation callbacks |
-| Modify | `src/pages/RideBooking.tsx` — dynamic distance & pricing |
+| Create | `src/hooks/use-reverse-geocoding.ts` |
+| Modify | `src/pages/RideBooking.tsx` |
 
