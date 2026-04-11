@@ -15,13 +15,7 @@ import { useRide } from "@/context/RideContext";
 import { usePayment } from "@/context/PaymentContext";
 import { useNearbyDrivers } from "@/hooks/use-realtime";
 import { dispatch } from "@/lib/dispatch";
-
-const VEHICLE_CONFIG = [
-  { id: "bike" as const, icon: Bike, label: "PYU Bike", etaMultiplier: 3, baseFare: 2000, perKm: 1500, desc: "Affordable motorcycle ride" },
-  { id: "car" as const, icon: Car, label: "PYU Car", etaMultiplier: 4, baseFare: 5000, perKm: 4000, desc: "Comfortable car ride" },
-  { id: "premium" as const, icon: Car, label: "PYU Premium", etaMultiplier: 5, baseFare: 10000, perKm: 7000, desc: "Luxury experience" },
-  { id: "womenbike" as const, icon: Bike, label: "PYU Women Bike", etaMultiplier: 3, baseFare: 3000, perKm: 2000, desc: "Safe ride by female drivers" },
-];
+import { useRideFareConfig, useAppSetting } from "@/hooks/use-app-data";
 
 function formatRupiah(n: number) {
   return `Rp ${n.toLocaleString("id-ID")}`;
@@ -31,18 +25,46 @@ function calcFare(baseFare: number, perKm: number, distKm: number) {
   return Math.round((baseFare + distKm * perKm) / 1000) * 1000;
 }
 
-const defaultSuggestions: GeocodingResult[] = [
-  { name: "Grand Indonesia Mall", addr: "Jl. MH Thamrin No. 1", latlng: [-6.1950, 106.8220] },
-  { name: "Monas", addr: "Gambir, Central Jakarta", latlng: [-6.1754, 106.8272] },
-  { name: "Blok M Plaza", addr: "Jl. Sultan Hasanuddin", latlng: [-6.2443, 106.7981] },
-];
-
 type Step = "location" | "fare" | "confirm";
 
 export default function RideBooking() {
   const navigate = useNavigate();
   const { ride, setRide } = useRide();
   const { createTransaction } = usePayment();
+  const { data: fareConfig } = useRideFareConfig();
+  const { data: defaultSuggestionsRaw } = useAppSetting("default_suggestions");
+
+  const defaultSuggestions: GeocodingResult[] = useMemo(() => {
+    if (!defaultSuggestionsRaw) return [
+      { name: "Grand Indonesia Mall", addr: "Jl. MH Thamrin No. 1", latlng: [-6.1950, 106.8220] },
+      { name: "Monas", addr: "Gambir, Central Jakarta", latlng: [-6.1754, 106.8272] },
+      { name: "Blok M Plaza", addr: "Jl. Sultan Hasanuddin", latlng: [-6.2443, 106.7981] },
+    ];
+    try {
+      const parsed = Array.isArray(defaultSuggestionsRaw) ? defaultSuggestionsRaw : JSON.parse(String(defaultSuggestionsRaw));
+      return parsed.map((s: any) => ({ name: s.name, addr: s.addr, latlng: [s.lat, s.lng] as [number, number] }));
+    } catch {
+      return [];
+    }
+  }, [defaultSuggestionsRaw]);
+
+  const VEHICLE_CONFIG = useMemo(() => {
+    if (!fareConfig) return [
+      { id: "bike" as const, icon: Bike, label: "PYU Bike", etaMultiplier: 3, baseFare: 2000, perKm: 1500, desc: "Affordable motorcycle ride" },
+      { id: "car" as const, icon: Car, label: "PYU Car", etaMultiplier: 4, baseFare: 5000, perKm: 4000, desc: "Comfortable car ride" },
+      { id: "premium" as const, icon: Car, label: "PYU Premium", etaMultiplier: 5, baseFare: 10000, perKm: 7000, desc: "Luxury experience" },
+      { id: "womenbike" as const, icon: Bike, label: "PYU Women Bike", etaMultiplier: 3, baseFare: 3000, perKm: 2000, desc: "Safe ride by female drivers" },
+    ];
+    return fareConfig.map((v) => ({
+      id: v.vehicle_type as any,
+      icon: v.icon_type === "bike" ? Bike : Car,
+      label: v.label,
+      etaMultiplier: Number(v.eta_multiplier),
+      baseFare: v.base_fare,
+      perKm: v.per_km_rate,
+      desc: v.description,
+    }));
+  }, [fareConfig]);
 
   const [pickupName, setPickupName] = useState(ride.pickup.name);
   const [destName, setDestName] = useState(ride.destination.name);
@@ -57,11 +79,9 @@ export default function RideBooking() {
   const { results: geocodeResults, loading: geocodeLoading } = useGeocoding(searchQuery);
   const displayResults = geocodeResults.length > 0 ? geocodeResults : defaultSuggestions;
 
-  // Reverse geocoding for map taps / my location
   const pickupReverseGeo = useReverseGeocoding(pickupPos);
   const destReverseGeo = useReverseGeocoding(destPos);
 
-  // Auto-update names when reverse geocode resolves
   useEffect(() => {
     if (pickupReverseGeo.name && pickupPos) {
       const isRawCoord = /^-?\d+\.\d+,\s*-?\d+\.\d+$/.test(pickupName) || pickupName === "My Location";
@@ -76,18 +96,15 @@ export default function RideBooking() {
     }
   }, [destReverseGeo.name]);
 
-  // Initialize dispatch engine for simulated drivers
   useEffect(() => {
     dispatch.init();
   }, []);
 
-  // Live nearby drivers from realtime
   const realtimeDrivers = useNearbyDrivers();
   const nearbyDriverPositions = useMemo<[number, number][]>(() => {
     if (realtimeDrivers.length > 0) {
       return realtimeDrivers.map((d) => d.coords as [number, number]);
     }
-    // Fallback: static positions until dispatch engine starts broadcasting
     const base = pickupPos || [-6.2088, 106.8456];
     return Array.from({ length: 5 }, () => [
       base[0] + (Math.random() - 0.5) * 0.02,
@@ -129,7 +146,6 @@ export default function RideBooking() {
 
   const canProceedToFare = pickupPos && destPos;
 
-  // Dynamic distance & pricing
   const distanceKm = useMemo(() => {
     if (!pickupPos || !destPos) return 0;
     return haversineDistance(pickupPos, destPos);
@@ -137,9 +153,8 @@ export default function RideBooking() {
 
   const estimatedMinutes = useMemo(() => Math.max(1, Math.ceil(distanceKm * 3)), [distanceKm]);
 
-  // Nearest driver distance for dynamic ETA
   const nearestDriverKm = useMemo(() => {
-    if (!pickupPos || nearbyDriverPositions.length === 0) return 2; // fallback 2km
+    if (!pickupPos || nearbyDriverPositions.length === 0) return 2;
     return Math.min(...nearbyDriverPositions.map((d) => haversineDistance(d, pickupPos)));
   }, [nearbyDriverPositions, pickupPos]);
 
@@ -150,7 +165,7 @@ export default function RideBooking() {
       price: formatRupiah(calcFare(v.baseFare, v.perKm, distanceKm)),
       fareNum: calcFare(v.baseFare, v.perKm, distanceKm),
     })),
-    [distanceKm, nearestDriverKm]
+    [distanceKm, nearestDriverKm, VEHICLE_CONFIG]
   );
 
   const handleConfirmLocation = () => {
@@ -188,7 +203,6 @@ export default function RideBooking() {
   return (
     <MobileLayout hideNav>
       <div className="min-h-screen bg-background relative">
-        {/* Full-screen map */}
         <div className="h-screen w-full">
           <MapView
             useGeolocation={step === "location" && !pickupPos}
@@ -202,7 +216,6 @@ export default function RideBooking() {
           />
         </div>
 
-        {/* Top bar */}
         <div className="absolute top-4 left-4 z-[1000]">
           <button onClick={goBack} className="p-2 rounded-xl bg-card border border-border shadow-sm">
             <ArrowLeft className="h-5 w-5" />
@@ -217,7 +230,6 @@ export default function RideBooking() {
           </div>
         )}
 
-        {/* Bottom sheet */}
         <RideBottomSheet animationKey={step}>
           {step === "location" && (
             <div className="space-y-4">

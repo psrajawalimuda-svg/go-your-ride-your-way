@@ -20,10 +20,10 @@ import { usePayment } from "@/context/PaymentContext";
 import { format } from "date-fns";
 import { QRCodeSVG } from "qrcode.react";
 import html2canvas from "html2canvas";
+import { useShuttleSchedules } from "@/hooks/use-app-data";
+import { Skeleton } from "@/components/ui/skeleton";
 
-// ─── Data ───────────────────────────────────────────────────────────────────
-
-const CITIES = ["Jakarta", "Bandung", "Surabaya", "Yogyakarta", "Semarang"];
+// ─── Types ──────────────────────────────────────────────────────────────────
 
 interface Schedule {
   id: string;
@@ -37,21 +37,6 @@ interface Schedule {
   totalSeats: number;
   availableSeats: number;
 }
-
-const ALL_SCHEDULES: Schedule[] = [
-  { id: "s1", from: "Jakarta", to: "Bandung", departure: "06:00", arrival: "09:30", duration: "3h 30m", price: 85000, operator: "PYU Express", totalSeats: 40, availableSeats: 28 },
-  { id: "s2", from: "Jakarta", to: "Bandung", departure: "08:00", arrival: "11:30", duration: "3h 30m", price: 85000, operator: "PYU Express", totalSeats: 40, availableSeats: 15 },
-  { id: "s3", from: "Jakarta", to: "Bandung", departure: "10:00", arrival: "13:30", duration: "3h 30m", price: 95000, operator: "PYU Premium", totalSeats: 40, availableSeats: 32 },
-  { id: "s4", from: "Jakarta", to: "Bandung", departure: "14:00", arrival: "17:30", duration: "3h 30m", price: 85000, operator: "PYU Express", totalSeats: 40, availableSeats: 20 },
-  { id: "s5", from: "Jakarta", to: "Surabaya", departure: "07:00", arrival: "17:00", duration: "10h", price: 250000, operator: "PYU Premium", totalSeats: 40, availableSeats: 22 },
-  { id: "s6", from: "Jakarta", to: "Surabaya", departure: "20:00", arrival: "06:00", duration: "10h", price: 220000, operator: "PYU Night", totalSeats: 40, availableSeats: 18 },
-  { id: "s7", from: "Jakarta", to: "Semarang", departure: "06:30", arrival: "12:30", duration: "6h", price: 150000, operator: "PYU Express", totalSeats: 40, availableSeats: 25 },
-  { id: "s8", from: "Jakarta", to: "Yogyakarta", departure: "07:00", arrival: "15:00", duration: "8h", price: 200000, operator: "PYU Premium", totalSeats: 40, availableSeats: 30 },
-  { id: "s9", from: "Bandung", to: "Jakarta", departure: "06:00", arrival: "09:30", duration: "3h 30m", price: 85000, operator: "PYU Express", totalSeats: 40, availableSeats: 24 },
-  { id: "s10", from: "Bandung", to: "Yogyakarta", departure: "08:00", arrival: "16:00", duration: "8h", price: 180000, operator: "PYU Express", totalSeats: 40, availableSeats: 19 },
-  { id: "s11", from: "Surabaya", to: "Jakarta", departure: "07:00", arrival: "17:00", duration: "10h", price: 250000, operator: "PYU Premium", totalSeats: 40, availableSeats: 26 },
-  { id: "s12", from: "Yogyakarta", to: "Jakarta", departure: "06:00", arrival: "14:00", duration: "8h", price: 200000, operator: "PYU Express", totalSeats: 40, availableSeats: 21 },
-];
 
 type BookingStep = "search" | "schedules" | "seats" | "passenger" | "payment" | "ticket";
 const STEPS: BookingStep[] = ["search", "schedules", "seats", "passenger", "payment", "ticket"];
@@ -70,7 +55,6 @@ interface Passenger {
 function generateSeatMap(totalSeats: number, occupiedCount: number): SeatStatus[] {
   const seats: SeatStatus[] = Array(totalSeats).fill("available");
   const indices = Array.from({ length: totalSeats }, (_, i) => i);
-  // Shuffle and pick occupied
   for (let i = indices.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [indices[i], indices[j]] = [indices[j], indices[i]];
@@ -90,46 +74,57 @@ function formatPrice(n: number) {
 export default function Shuttle() {
   const navigate = useNavigate();
   const { createTransaction } = usePayment();
+  const { data: dbSchedules, isLoading: schedulesLoading } = useShuttleSchedules();
+
+  // Derive cities from DB schedules
+  const CITIES = useMemo(() => {
+    if (!dbSchedules) return [];
+    const cities = new Set<string>();
+    dbSchedules.forEach((s) => { cities.add(s.from_city); cities.add(s.to_city); });
+    return Array.from(cities).sort();
+  }, [dbSchedules]);
+
+  // Map DB schedules to local format
+  const ALL_SCHEDULES: Schedule[] = useMemo(() => {
+    if (!dbSchedules) return [];
+    return dbSchedules.map((s) => ({
+      id: s.id,
+      from: s.from_city,
+      to: s.to_city,
+      departure: s.departure,
+      arrival: s.arrival,
+      duration: s.duration,
+      price: s.price,
+      operator: s.operator,
+      totalSeats: s.total_seats,
+      availableSeats: s.available_seats,
+    }));
+  }, [dbSchedules]);
+
   const [step, setStep] = useState<BookingStep>("search");
   const stepIdx = STEPS.indexOf(step);
 
-  // Step 1
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [date, setDate] = useState<Date | undefined>(new Date());
   const [passengerCount, setPassengerCount] = useState(1);
-
-  // Step 2
   const [selectedSchedule, setSelectedSchedule] = useState<Schedule | null>(null);
-
-  // Step 3
   const [seatMap, setSeatMap] = useState<SeatStatus[]>([]);
   const [selectedSeats, setSelectedSeats] = useState<number[]>([]);
-
-  // Step 4
   const [passengers, setPassengers] = useState<Passenger[]>([]);
-
-  // Step 5
   const [paymentMethod, setPaymentMethod] = useState("ewallet");
-
-  // Step 6
   const [bookingId, setBookingId] = useState("");
 
-  // ─── Filtered schedules
   const filteredSchedules = useMemo(
     () => ALL_SCHEDULES.filter((s) => s.from === from && s.to === to),
-    [from, to]
+    [from, to, ALL_SCHEDULES]
   );
 
   const ticketRef = useRef<HTMLDivElement>(null);
 
   const captureTicket = async (): Promise<Blob | null> => {
     if (!ticketRef.current) return null;
-    const canvas = await html2canvas(ticketRef.current, {
-      backgroundColor: null,
-      scale: 2,
-      useCORS: true,
-    });
+    const canvas = await html2canvas(ticketRef.current, { backgroundColor: null, scale: 2, useCORS: true });
     return new Promise((resolve) => canvas.toBlob((b) => resolve(b), "image/png"));
   };
 
@@ -155,7 +150,6 @@ export default function Shuttle() {
     }
   };
 
-  // ─── Navigation
   const goBack = useCallback(() => {
     const prev = STEPS[stepIdx - 1];
     if (prev) setStep(prev);
@@ -225,14 +219,11 @@ export default function Shuttle() {
 
   const totalPrice = selectedSchedule ? selectedSchedule.price * passengerCount : 0;
 
-  // ─── Render ───────────────────────────────────────────────────────────────
-
   const anim = { initial: { opacity: 0, x: 30 }, animate: { opacity: 1, x: 0 }, exit: { opacity: 0, x: -30 }, transition: { duration: 0.2 } };
 
   return (
     <MobileLayout>
       <div className="px-4 pt-4 pb-6 space-y-4">
-        {/* Header */}
         <div className="flex items-center gap-3">
           {stepIdx > 0 && step !== "ticket" && (
             <button onClick={goBack} className="p-1.5 rounded-xl hover:bg-secondary/60 transition-colors">
@@ -245,7 +236,6 @@ export default function Shuttle() {
           </div>
         </div>
 
-        {/* Step indicator */}
         {step !== "ticket" && (
           <div className="flex gap-1">
             {STEPS.slice(0, -1).map((s, i) => (
@@ -255,95 +245,101 @@ export default function Shuttle() {
         )}
 
         <AnimatePresence mode="wait">
-          {/* ─── STEP 1: Search ────────────────────────────────────────── */}
           {step === "search" && (
             <motion.div key="search" {...anim} className="space-y-4">
-              <Card className="p-4 rounded-2xl space-y-4">
-                <div className="relative space-y-3">
-                  <div>
-                    <Label className="text-xs text-muted-foreground mb-1.5 block">From</Label>
-                    <Select value={from} onValueChange={setFrom}>
-                      <SelectTrigger className="rounded-xl h-11 bg-secondary/50 border-0">
-                        <SelectValue placeholder="Select origin" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {CITIES.filter((c) => c !== to).map((c) => (
-                          <SelectItem key={c} value={c}>{c}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  {/* Swap button */}
-                  <button
-                    type="button"
-                    onClick={() => { setFrom(to); setTo(from); }}
-                    disabled={!from && !to}
-                    className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-md hover:bg-primary/90 transition-colors disabled:opacity-40"
-                  >
-                    <ArrowUpDown className="h-3.5 w-3.5" />
-                  </button>
-                  <div>
-                    <Label className="text-xs text-muted-foreground mb-1.5 block">To</Label>
-                    <Select value={to} onValueChange={setTo}>
-                      <SelectTrigger className="rounded-xl h-11 bg-secondary/50 border-0">
-                        <SelectValue placeholder="Select destination" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {CITIES.filter((c) => c !== from).map((c) => (
-                          <SelectItem key={c} value={c}>{c}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+              {schedulesLoading ? (
+                <div className="space-y-3">
+                  <Skeleton className="h-32 w-full rounded-2xl" />
+                  <Skeleton className="h-12 w-full rounded-2xl" />
                 </div>
+              ) : (
+                <>
+                  <Card className="p-4 rounded-2xl space-y-4">
+                    <div className="relative space-y-3">
+                      <div>
+                        <Label className="text-xs text-muted-foreground mb-1.5 block">From</Label>
+                        <Select value={from} onValueChange={setFrom}>
+                          <SelectTrigger className="rounded-xl h-11 bg-secondary/50 border-0">
+                            <SelectValue placeholder="Select origin" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {CITIES.filter((c) => c !== to).map((c) => (
+                              <SelectItem key={c} value={c}>{c}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => { setFrom(to); setTo(from); }}
+                        disabled={!from && !to}
+                        className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-md hover:bg-primary/90 transition-colors disabled:opacity-40"
+                      >
+                        <ArrowUpDown className="h-3.5 w-3.5" />
+                      </button>
+                      <div>
+                        <Label className="text-xs text-muted-foreground mb-1.5 block">To</Label>
+                        <Select value={to} onValueChange={setTo}>
+                          <SelectTrigger className="rounded-xl h-11 bg-secondary/50 border-0">
+                            <SelectValue placeholder="Select destination" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {CITIES.filter((c) => c !== from).map((c) => (
+                              <SelectItem key={c} value={c}>{c}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label className="text-xs text-muted-foreground mb-1.5 block">Date</Label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button variant="outline" className={cn("w-full justify-start rounded-xl h-11 bg-secondary/50 border-0 font-normal", !date && "text-muted-foreground")}>
-                          <CalendarDays className="h-4 w-4 mr-2" />
-                          {date ? format(date, "dd MMM") : "Pick date"}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={date}
-                          onSelect={setDate}
-                          disabled={(d) => d < new Date(new Date().setHours(0, 0, 0, 0))}
-                          initialFocus
-                          className="p-3 pointer-events-auto"
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                  <div>
-                    <Label className="text-xs text-muted-foreground mb-1.5 block">Passengers</Label>
-                    <Select value={String(passengerCount)} onValueChange={(v) => setPassengerCount(Number(v))}>
-                      <SelectTrigger className="rounded-xl h-11 bg-secondary/50 border-0">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {[1, 2, 3, 4].map((n) => (
-                          <SelectItem key={n} value={String(n)}>
-                            <span className="flex items-center gap-2"><Users className="h-3.5 w-3.5" /> {n} {n === 1 ? "Passenger" : "Passengers"}</span>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </Card>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-xs text-muted-foreground mb-1.5 block">Date</Label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" className={cn("w-full justify-start rounded-xl h-11 bg-secondary/50 border-0 font-normal", !date && "text-muted-foreground")}>
+                              <CalendarDays className="h-4 w-4 mr-2" />
+                              {date ? format(date, "dd MMM") : "Pick date"}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              mode="single"
+                              selected={date}
+                              onSelect={setDate}
+                              disabled={(d) => d < new Date(new Date().setHours(0, 0, 0, 0))}
+                              initialFocus
+                              className="p-3 pointer-events-auto"
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground mb-1.5 block">Passengers</Label>
+                        <Select value={String(passengerCount)} onValueChange={(v) => setPassengerCount(Number(v))}>
+                          <SelectTrigger className="rounded-xl h-11 bg-secondary/50 border-0">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {[1, 2, 3, 4].map((n) => (
+                              <SelectItem key={n} value={String(n)}>
+                                <span className="flex items-center gap-2"><Users className="h-3.5 w-3.5" /> {n} {n === 1 ? "Passenger" : "Passengers"}</span>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </Card>
 
-              <Button onClick={goToSchedules} disabled={!from || !to || !date} className="w-full h-12 rounded-2xl text-base font-bold">
-                Search Shuttles
-              </Button>
+                  <Button onClick={goToSchedules} disabled={!from || !to || !date} className="w-full h-12 rounded-2xl text-base font-bold">
+                    Search Shuttles
+                  </Button>
+                </>
+              )}
             </motion.div>
           )}
 
-          {/* ─── STEP 2: Schedules ─────────────────────────────────────── */}
           {step === "schedules" && (
             <motion.div key="schedules" {...anim} className="space-y-3">
               <div className="flex items-center gap-2 text-sm font-bold">
@@ -402,7 +398,6 @@ export default function Shuttle() {
             </motion.div>
           )}
 
-          {/* ─── STEP 3: Seat Selection ────────────────────────────────── */}
           {step === "seats" && (
             <motion.div key="seats" {...anim} className="space-y-4">
               <div className="text-center">
@@ -411,27 +406,22 @@ export default function Shuttle() {
                 </p>
               </div>
 
-              {/* Legend */}
               <div className="flex items-center justify-center gap-4 text-xs">
                 <span className="flex items-center gap-1.5"><div className="w-5 h-5 rounded-md bg-secondary border border-border" /> Available</span>
                 <span className="flex items-center gap-1.5"><div className="w-5 h-5 rounded-md bg-primary" /> Selected</span>
                 <span className="flex items-center gap-1.5"><div className="w-5 h-5 rounded-md bg-muted-foreground/30" /> Occupied</span>
               </div>
 
-              {/* Bus layout */}
               <Card className="p-4 rounded-2xl">
-                {/* Driver area */}
                 <div className="flex justify-end mb-4 pr-1">
                   <div className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center">
                     <Armchair className="h-4 w-4 text-muted-foreground" />
                   </div>
                 </div>
 
-                {/* Seat grid: 10 rows, 2+aisle+2 */}
                 <div className="space-y-2">
                   {Array.from({ length: 10 }, (_, row) => (
                     <div key={row} className="flex items-center justify-center gap-1">
-                      {/* Left pair */}
                       {[0, 1].map((col) => {
                         const idx = row * 4 + col;
                         const status = selectedSeats.includes(idx) ? "selected" : seatMap[idx];
@@ -451,9 +441,7 @@ export default function Shuttle() {
                           </button>
                         );
                       })}
-                      {/* Aisle */}
                       <div className="w-6" />
-                      {/* Right pair */}
                       {[2, 3].map((col) => {
                         const idx = row * 4 + col;
                         const status = selectedSeats.includes(idx) ? "selected" : seatMap[idx];
@@ -484,7 +472,6 @@ export default function Shuttle() {
             </motion.div>
           )}
 
-          {/* ─── STEP 4: Passenger Form ────────────────────────────────── */}
           {step === "passenger" && (
             <motion.div key="passenger" {...anim} className="space-y-4">
               {passengers.map((p, i) => (
@@ -556,7 +543,6 @@ export default function Shuttle() {
             </motion.div>
           )}
 
-          {/* ─── STEP 5: Payment ───────────────────────────────────────── */}
           {step === "payment" && (
             <motion.div key="payment" {...anim} className="space-y-4">
               <Card className="p-4 rounded-2xl space-y-3">
@@ -622,7 +608,6 @@ export default function Shuttle() {
             </motion.div>
           )}
 
-          {/* ─── STEP 6: E-Ticket ──────────────────────────────────────── */}
           {step === "ticket" && (
             <motion.div key="ticket" {...anim} className="space-y-4">
               <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="text-center space-y-2">
@@ -634,13 +619,11 @@ export default function Shuttle() {
               </motion.div>
 
               <Card ref={ticketRef} className="p-5 rounded-2xl space-y-4">
-                {/* Ticket header */}
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-primary bg-primary/10 px-2 py-1 rounded-lg">E-TICKET</span>
                   <span className="text-xs font-mono text-muted-foreground">{bookingId}</span>
                 </div>
 
-                {/* Route */}
                 <div className="text-center">
                   <div className="flex items-center justify-center gap-3 text-base font-bold">
                     <span>{from}</span>
@@ -653,7 +636,6 @@ export default function Shuttle() {
                   <p className="text-xs text-muted-foreground">{selectedSchedule?.operator}</p>
                 </div>
 
-                {/* Details */}
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div className="bg-secondary/50 p-2.5 rounded-xl">
                     <span className="text-muted-foreground block">Seats</span>
@@ -669,7 +651,6 @@ export default function Shuttle() {
                   </div>
                 </div>
 
-                {/* Passenger names */}
                 <div className="text-xs space-y-1">
                   <span className="text-muted-foreground font-medium">Passengers:</span>
                   {passengers.map((p, i) => (
@@ -680,7 +661,6 @@ export default function Shuttle() {
                   ))}
                 </div>
 
-                {/* QR Code */}
                 <div className="flex justify-center pt-2">
                   <div className="p-3 bg-white rounded-xl">
                     <QRCodeSVG

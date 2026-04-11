@@ -5,7 +5,7 @@ import { Users, Car, MapPin, DollarSign, Clock } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { useAdminUsers, useAdminDrivers, useAdminTrips, useAdminTransactions } from "@/hooks/use-admin-data";
-import { tripsChartData, revenueChartData, recentActivity } from "@/lib/mock-admin-data";
+import { useDashboardCharts, useRecentActivity } from "@/hooks/use-app-data";
 
 const activityTypeColor: Record<string, string> = {
   trip: "bg-emerald-500/10 text-emerald-600",
@@ -20,6 +20,8 @@ export default function AdminDashboard() {
   const { data: drivers, isLoading: loadingDrivers } = useAdminDrivers();
   const { data: trips, isLoading: loadingTrips } = useAdminTrips();
   const { data: transactions, isLoading: loadingTxn } = useAdminTransactions();
+  const { data: charts, isLoading: loadingCharts } = useDashboardCharts();
+  const { data: activities, isLoading: loadingActivity } = useRecentActivity();
 
   const isLoading = loadingUsers || loadingDrivers || loadingTrips || loadingTxn;
 
@@ -55,27 +57,35 @@ export default function AdminDashboard() {
           <Card>
             <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Trips (7 Days)</CardTitle></CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={200}>
-                <BarChart data={tripsChartData}>
-                  <XAxis dataKey="day" fontSize={12} tickLine={false} axisLine={false} />
-                  <YAxis fontSize={12} tickLine={false} axisLine={false} />
-                  <Tooltip />
-                  <Bar dataKey="trips" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+              {loadingCharts ? (
+                <Skeleton className="h-[200px] w-full" />
+              ) : (
+                <ResponsiveContainer width="100%" height={200}>
+                  <BarChart data={charts?.tripsChartData || []}>
+                    <XAxis dataKey="day" fontSize={12} tickLine={false} axisLine={false} />
+                    <YAxis fontSize={12} tickLine={false} axisLine={false} />
+                    <Tooltip />
+                    <Bar dataKey="trips" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Revenue (7 Days)</CardTitle></CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={200}>
-                <LineChart data={revenueChartData}>
-                  <XAxis dataKey="day" fontSize={12} tickLine={false} axisLine={false} />
-                  <YAxis fontSize={12} tickLine={false} axisLine={false} tickFormatter={(v) => `${v / 1000000}M`} />
-                  <Tooltip formatter={(v: number) => `Rp ${v.toLocaleString()}`} />
-                  <Line type="monotone" dataKey="revenue" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} />
-                </LineChart>
-              </ResponsiveContainer>
+              {loadingCharts ? (
+                <Skeleton className="h-[200px] w-full" />
+              ) : (
+                <ResponsiveContainer width="100%" height={200}>
+                  <LineChart data={charts?.revenueChartData || []}>
+                    <XAxis dataKey="day" fontSize={12} tickLine={false} axisLine={false} />
+                    <YAxis fontSize={12} tickLine={false} axisLine={false} tickFormatter={(v) => `${v / 1000000}M`} />
+                    <Tooltip formatter={(v: number) => `Rp ${v.toLocaleString()}`} />
+                    <Line type="monotone" dataKey="revenue" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} />
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -83,15 +93,23 @@ export default function AdminDashboard() {
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Aktivitas Terbaru</CardTitle></CardHeader>
           <CardContent className="space-y-3">
-            {recentActivity.map((a) => (
-              <div key={a.id} className="flex items-start gap-3">
-                <Badge variant="secondary" className={`text-[10px] shrink-0 ${activityTypeColor[a.type]}`}>{a.type}</Badge>
-                <div className="min-w-0">
-                  <p className="text-sm text-foreground truncate">{a.text}</p>
-                  <p className="text-xs text-muted-foreground">{a.time}</p>
-                </div>
+            {loadingActivity ? (
+              <div className="space-y-2">
+                {[1, 2, 3].map((i) => <Skeleton key={i} className="h-10 w-full" />)}
               </div>
-            ))}
+            ) : (activities || []).length === 0 ? (
+              <p className="text-sm text-muted-foreground">Belum ada aktivitas</p>
+            ) : (
+              (activities || []).map((a) => (
+                <div key={a.id} className="flex items-start gap-3">
+                  <Badge variant="secondary" className={`text-[10px] shrink-0 ${activityTypeColor[a.type] || ""}`}>{a.type}</Badge>
+                  <div className="min-w-0">
+                    <p className="text-sm text-foreground truncate">{a.text}</p>
+                    <p className="text-xs text-muted-foreground">{a.time}</p>
+                  </div>
+                </div>
+              ))
+            )}
           </CardContent>
         </Card>
       </div>
