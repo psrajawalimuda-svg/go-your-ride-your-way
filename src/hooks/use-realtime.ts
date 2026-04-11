@@ -46,6 +46,33 @@ export function useDriverTracking(driverId: string | null) {
   return { position, heading };
 }
 
+// ── Nearby drivers hook ─────────────────────────────────────────────────────
+
+export function useNearbyDrivers() {
+  const [drivers, setDrivers] = useState<Map<string, { coords: LatLng; heading: number }>>(new Map());
+
+  useEffect(() => {
+    const unsub = realtime.subscribe("driver:location", (data: DriverLocationPayload) => {
+      setDrivers((prev) => {
+        const next = new Map(prev);
+        next.set(data.driverId, { coords: data.coords, heading: data.heading });
+        return next;
+      });
+    });
+
+    return unsub;
+  }, []);
+
+  // Convert to array for MapView consumption
+  const driverList = Array.from(drivers.entries()).map(([id, d]) => ({
+    id,
+    coords: d.coords,
+    heading: d.heading,
+  }));
+
+  return driverList;
+}
+
 // ── Trip status hook ────────────────────────────────────────────────────────
 
 export function useTripStatus(tripId: string | null) {
@@ -104,7 +131,6 @@ export function useLocationBroadcast(
     coordsRef.current = baseCoords;
 
     const timer = setInterval(() => {
-      // Simulate slight position drift
       const dLat = (Math.random() - 0.5) * 0.001;
       const dLng = (Math.random() - 0.5) * 0.001;
       coordsRef.current = [
