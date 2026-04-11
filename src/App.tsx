@@ -25,6 +25,14 @@ import DriverLogin from "./pages/driver/DriverLogin";
 import DriverHome from "./pages/driver/DriverHome";
 import DriverTrip from "./pages/driver/DriverTrip";
 import DriverEarnings from "./pages/driver/DriverEarnings";
+import AdminLogin from "./pages/admin/AdminLogin";
+import AdminDashboard from "./pages/admin/AdminDashboard";
+import AdminUsers from "./pages/admin/AdminUsers";
+import AdminDrivers from "./pages/admin/AdminDrivers";
+import AdminTrips from "./pages/admin/AdminTrips";
+import AdminShuttle from "./pages/admin/AdminShuttle";
+import AdminPayments from "./pages/admin/AdminPayments";
+import AdminPromos from "./pages/admin/AdminPromos";
 
 const queryClient = new QueryClient();
 
@@ -56,6 +64,14 @@ const App = () => (
                       <Route path="/driver/home" element={<DriverHome />} />
                       <Route path="/driver/trip" element={<DriverTrip />} />
                       <Route path="/driver/earnings" element={<DriverEarnings />} />
+                      <Route path="/admin/login" element={<AdminLogin />} />
+                      <Route path="/admin" element={<AdminDashboard />} />
+                      <Route path="/admin/users" element={<AdminUsers />} />
+                      <Route path="/admin/drivers" element={<AdminDrivers />} />
+                      <Route path="/admin/trips" element={<AdminTrips />} />
+                      <Route path="/admin/shuttle" element={<AdminShuttle />} />
+                      <Route path="/admin/payments" element={<AdminPayments />} />
+                      <Route path="/admin/promos" element={<AdminPromos />} />
                       <Route path="*" element={<NotFound />} />
                     </Routes>
                   </BrowserRouter>
