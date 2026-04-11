@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { ArrowLeft, MapPin, Navigation, Clock, Car, Bike, Truck, CreditCard, Wallet, Crosshair, Loader2, Search } from "lucide-react";
 import { useGeocoding, type GeocodingResult } from "@/hooks/use-geocoding";
 import { MobileLayout } from "@/components/layout/MobileLayout";
