@@ -155,6 +155,48 @@ export type Database = {
         }
         Relationships: []
       }
+      ride_fare_config: {
+        Row: {
+          base_fare: number
+          created_at: string
+          description: string
+          eta_multiplier: number
+          icon_type: string
+          id: string
+          label: string
+          per_km_rate: number
+          sort_order: number
+          updated_at: string
+          vehicle_type: string
+        }
+        Insert: {
+          base_fare?: number
+          created_at?: string
+          description?: string
+          eta_multiplier?: number
+          icon_type?: string
+          id?: string
+          label: string
+          per_km_rate?: number
+          sort_order?: number
+          updated_at?: string
+          vehicle_type: string
+        }
+        Update: {
+          base_fare?: number
+          created_at?: string
+          description?: string
+          eta_multiplier?: number
+          icon_type?: string
+          id?: string
+          label?: string
+          per_km_rate?: number
+          sort_order?: number
+          updated_at?: string
+          vehicle_type?: string
+        }
+        Relationships: []
+      }
       shuttle_bookings: {
         Row: {
           created_at: string
