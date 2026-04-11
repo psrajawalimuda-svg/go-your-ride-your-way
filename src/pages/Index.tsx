@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Navigation, Car, Bike, Bus, ChevronRight, Star, Clock, Plane, Building2, X } from "lucide-react";
+import { useState, useCallback, useEffect } from "react";
+import { Navigation, Car, Bike, Bus, ChevronRight, Star, Clock, Plane, Building2, X, Gift, Percent, Users, Sparkles } from "lucide-react";
 import { MobileLayout } from "@/components/layout/MobileLayout";
 import { MapView } from "@/components/MapView";
 import { Card } from "@/components/ui/card";
@@ -7,6 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useRide } from "@/context/RideContext";
+import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from "@/components/ui/carousel";
+import Autoplay from "embla-carousel-autoplay";
 
 const serviceOptions = [
   { id: "bike", icon: Bike, label: "Bike", color: "bg-blue-100" },
@@ -28,10 +30,25 @@ const recentPlaces = [
   { name: "Home", address: "Jl. Kemang Raya No. 15", icon: Star },
 ];
 
+const promoSlides = [
+  { title: "50% Off First Ride!", subtitle: "Use code WELCOME50", icon: Percent, bg: "from-purple-500 to-indigo-600" },
+  { title: "Refer & Earn Rp 50K", subtitle: "Invite friends, get rewards", icon: Users, bg: "from-blue-500 to-cyan-500" },
+  { title: "New! Airport Express", subtitle: "Fixed fare, no surge pricing", icon: Sparkles, bg: "from-emerald-500 to-teal-600" },
+  { title: "Weekend Bonus", subtitle: "2x points on all rides", icon: Gift, bg: "from-orange-500 to-red-500" },
+];
+
 export default function Index() {
   const navigate = useNavigate();
   const { ride, setRide } = useRide();
   const [showRideNowServices, setShowRideNowServices] = useState(false);
+  const [carouselApi, setCarouselApi] = useState<CarouselApi>();
+  const [currentSlide, setCurrentSlide] = useState(0);
+
+  useEffect(() => {
+    if (!carouselApi) return;
+    setCurrentSlide(carouselApi.selectedScrollSnap());
+    carouselApi.on("select", () => setCurrentSlide(carouselApi.selectedScrollSnap()));
+  }, [carouselApi]);
 
   const handleSelectService = (service: string) => {
     setRide({ ...ride, vehicle: service as any });
@@ -103,6 +120,42 @@ export default function Index() {
             </Card>
           </div>
 
+          {/* Promo Carousel */}
+          <div>
+            <h3 className="text-sm font-bold mb-2">Promo & Offers</h3>
+            <Carousel
+              setApi={setCarouselApi}
+              opts={{ loop: true }}
+              plugins={[Autoplay({ delay: 4000, stopOnInteraction: false })]}
+              className="w-full"
+            >
+              <CarouselContent className="-ml-2">
+                {promoSlides.map((slide, i) => (
+                  <CarouselItem key={i} className="pl-2">
+                    <div className={`bg-gradient-to-r ${slide.bg} rounded-2xl p-4 text-white flex items-center gap-3 min-h-[88px]`}>
+                      <div className="p-2.5 bg-white/20 rounded-xl backdrop-blur-sm">
+                        <slide.icon className="h-6 w-6" />
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="font-extrabold text-sm">{slide.title}</h4>
+                        <p className="text-xs text-white/80 mt-0.5">{slide.subtitle}</p>
+                      </div>
+                      <ChevronRight className="h-4 w-4 text-white/60" />
+                    </div>
+                  </CarouselItem>
+                ))}
+              </CarouselContent>
+            </Carousel>
+            <div className="flex justify-center gap-1.5 mt-2">
+              {promoSlides.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => carouselApi?.scrollTo(i)}
+                  className={`h-1.5 rounded-full transition-all ${i === currentSlide ? "w-4 bg-primary" : "w-1.5 bg-border"}`}
+                />
+              ))}
+            </div>
+          </div>
           {/* Recent places */}
           <div>
             <h3 className="text-sm font-bold mb-2">Recent Places</h3>
