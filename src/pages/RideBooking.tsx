@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from "react";
-import { ArrowLeft, MapPin, Navigation, Clock, Car, Bike, Truck, CreditCard, Wallet, Crosshair, Loader2, Search } from "lucide-react";
+import { ArrowLeft, MapPin, Navigation, Clock, Car, Bike, CreditCard, Wallet, Crosshair, Loader2, Search } from "lucide-react";
 import { useGeocoding, type GeocodingResult } from "@/hooks/use-geocoding";
 import { MobileLayout } from "@/components/layout/MobileLayout";
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,7 @@ const vehicles = [
   { id: "bike" as const, icon: Bike, label: "PYU Bike", eta: "3 min", price: "Rp 8,000", desc: "Affordable motorcycle ride" },
   { id: "car" as const, icon: Car, label: "PYU Car", eta: "5 min", price: "Rp 25,000", desc: "Comfortable car ride" },
   { id: "premium" as const, icon: Car, label: "PYU Premium", eta: "7 min", price: "Rp 45,000", desc: "Luxury experience" },
-  { id: "truck" as const, icon: Truck, label: "PYU Truck", eta: "12 min", price: "Rp 60,000", desc: "Large cargo delivery" },
+  { id: "womenbike" as const, icon: Bike, label: "PYU Women Bike", eta: "5 min", price: "Rp 15,000", desc: "Safe ride by female drivers" },
 ];
 
 const defaultSuggestions: GeocodingResult[] = [

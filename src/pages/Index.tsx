@@ -1,15 +1,26 @@
-import { Navigation, Car, Bike, Truck, Bus, ChevronRight, Star, Clock } from "lucide-react";
+import { useState } from "react";
+import { Navigation, Car, Bike, Bus, ChevronRight, Star, Clock, Plane, Building2, X } from "lucide-react";
 import { MobileLayout } from "@/components/layout/MobileLayout";
 import { MapView } from "@/components/MapView";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { useRide } from "@/context/RideContext";
+
+const serviceOptions = [
+  { id: "bike", icon: Bike, label: "Bike", color: "bg-blue-100" },
+  { id: "womenbike", icon: Bike, label: "Women Bike", color: "bg-pink-100" },
+  { id: "car", icon: Car, label: "Car", color: "bg-green-100" },
+  { id: "airport", icon: Plane, label: "Airport", color: "bg-purple-100" },
+  { id: "hotel", icon: Building2, label: "Hotel", color: "bg-orange-100" },
+];
 
 const vehicleTypes = [
   { id: "bike", icon: Bike, label: "Bike", eta: "3 min", price: "Rp 8K" },
   { id: "car", icon: Car, label: "Car", eta: "5 min", price: "Rp 25K" },
   { id: "premium", icon: Car, label: "Premium", eta: "7 min", price: "Rp 45K" },
-  { id: "truck", icon: Truck, label: "Truck", eta: "12 min", price: "Rp 60K" },
+  { id: "womenbike", icon: Bike, label: "Women Bike", eta: "5 min", price: "Rp 15K" },
 ];
 
 const recentPlaces = [
@@ -19,6 +30,19 @@ const recentPlaces = [
 
 export default function Index() {
   const navigate = useNavigate();
+  const { ride, setRide } = useRide();
+  const [showRideNowServices, setShowRideNowServices] = useState(false);
+
+  const handleSelectService = (service: string) => {
+    setRide({ ...ride, vehicle: service as any });
+    setShowRideNowServices(false);
+    navigate("/ride/book");
+  };
+
+  const handleSelectVehicle = (vehicleId: string) => {
+    setRide({ ...ride, vehicle: vehicleId as any });
+    navigate("/ride/book");
+  };
 
   return (
     <MobileLayout>
@@ -56,7 +80,7 @@ export default function Index() {
           <div className="grid grid-cols-2 gap-3">
             <Card
               className="p-4 rounded-2xl cursor-pointer hover:border-primary/30 transition-colors"
-              onClick={() => navigate("/ride/book")}
+              onClick={() => setShowRideNowServices(true)}
             >
               <div className="p-3 bg-primary/10 rounded-xl w-fit mb-3">
                 <Car className="h-7 w-7 text-primary" />
@@ -77,21 +101,6 @@ export default function Index() {
               <h3 className="font-extrabold text-sm">Shuttle</h3>
               <p className="text-xs text-muted-foreground mt-1">Intercity trips</p>
             </Card>
-          </div>
-
-          {/* Vehicle quick-select */}
-          <div className="grid grid-cols-4 gap-2">
-            {vehicleTypes.map((v) => (
-              <button
-                key={v.id}
-                onClick={() => navigate("/ride/book")}
-                className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-card border border-border hover:border-primary/30 transition-colors"
-              >
-                <v.icon className="h-6 w-6 text-foreground" />
-                <span className="text-xs font-semibold">{v.label}</span>
-                <span className="text-[10px] text-muted-foreground">{v.eta}</span>
-              </button>
-            ))}
           </div>
 
           {/* Recent places */}
@@ -116,6 +125,46 @@ export default function Index() {
             </div>
           </div>
         </div>
+
+        {/* Service Selection Modal */}
+        {showRideNowServices && (
+          <div className="fixed inset-0 z-50 bg-black/50 flex items-end animate-in fade-in">
+            <div className="w-full bg-background rounded-t-3xl p-6 space-y-4 animate-in slide-in-from-bottom-8">
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="text-xl font-bold">Select Service</h2>
+                <button
+                  onClick={() => setShowRideNowServices(false)}
+                  className="p-1 hover:bg-secondary rounded-lg transition-colors"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                {serviceOptions.map((service) => (
+                  <button
+                    key={service.id}
+                    onClick={() => handleSelectService(service.id)}
+                    className="flex flex-col items-center gap-2 p-3 rounded-2xl bg-card border border-border hover:border-primary/50 hover:bg-primary/5 transition-all active:scale-95"
+                  >
+                    <div className={`p-3 rounded-xl ${service.color}`}>
+                      <service.icon className="h-6 w-6 text-foreground" />
+                    </div>
+                    <span className="text-xs font-semibold text-center">{service.label}</span>
+                  </button>
+                ))}
+              </div>
+
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => setShowRideNowServices(false)}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
     </MobileLayout>
   );

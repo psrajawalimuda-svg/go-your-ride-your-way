@@ -12,7 +12,7 @@ export interface User {
   createdAt: string;
 }
 
-export type VehicleClass = "bike" | "car" | "premium" | "truck";
+export type VehicleClass = "bike" | "car" | "premium" | "womenbike";
 
 export interface Vehicle {
   id: string;
