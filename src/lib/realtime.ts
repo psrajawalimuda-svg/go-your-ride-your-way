@@ -1,8 +1,6 @@
-// ─── Realtime Service ───────────────────────────────────────────────────────
-// Client-side event bus with BroadcastChannel for cross-tab communication.
-// Mirrors a WebSocket/Firebase API so the transport can be swapped later.
+import { supabase } from "@/integrations/supabase/client";
 
-export type ConnectionStatus = "connecting" | "connected" | "disconnected" | "reconnecting";
+export type ConnectionStatus = "connecting" | "connected" | "disconnected" | "reconnecting" | "poor";
 
 export type RealtimeChannel =
   | "driver:location"
@@ -32,12 +30,16 @@ export interface DispatchRequestPayload {
   passengerName: string;
   estimatedDistance: string;
   estimatedDuration: string;
+  priority?: "normal" | "premium" | "emergency";
+  vehicleType?: string;
+  driverId?: string; // Targeted dispatch
 }
 
 export interface DispatchResponsePayload {
   requestId: string;
   accepted: boolean;
   driverId: string;
+  reason?: "timeout" | "declined" | "busy";
 }
 
 export type ChannelPayloadMap = {
@@ -57,44 +59,52 @@ interface ChannelMessage {
 
 class RealtimeService {
   private listeners = new Map<RealtimeChannel, Set<Listener>>();
-  private broadcastChannel: BroadcastChannel | null = null;
   private _status: ConnectionStatus = "disconnected";
   private statusListeners = new Set<Listener<ConnectionStatus>>();
-  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
-  private reconnectAttempts = 0;
-  private readonly maxReconnectAttempts = 5;
   private readonly instanceId = Math.random().toString(36).slice(2, 8);
+  private supabaseChannel = supabase.channel("pyugo-global");
+  private reconnectAttempts = 0;
+  private readonly maxReconnectAttempts = 10;
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private lastPingTime = 0;
+  private pingInterval: ReturnType<typeof setInterval> | null = null;
 
   constructor() {
     this.connect();
+    this.startPing();
   }
 
   // ── Connection lifecycle ──────────────────────────────────────────────
 
   private connect() {
-    this.setStatus("connecting");
+    if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+    this.setStatus(this.reconnectAttempts > 0 ? "reconnecting" : "connecting");
 
-    try {
-      if (typeof BroadcastChannel !== "undefined") {
-        this.broadcastChannel = new BroadcastChannel("pyugo-realtime");
-        this.broadcastChannel.onmessage = (event: MessageEvent<ChannelMessage>) => {
-          const { channel, data, source } = event.data;
-          // Ignore messages from self
-          if (source === this.instanceId) return;
-          this.emit(channel, data, true);
-        };
-        this.broadcastChannel.onmessageerror = () => this.handleDisconnect();
-      }
-
-      this.reconnectAttempts = 0;
-      this.setStatus("connected");
-
-      if (import.meta.env.DEV) {
-        console.log("[Realtime] Connected — instance:", this.instanceId);
-      }
-    } catch {
-      this.handleDisconnect();
-    }
+    this.supabaseChannel
+      .on("broadcast", { event: "message" }, (payload) => {
+        const { channel, data, source } = payload.payload as ChannelMessage;
+        if (source === this.instanceId) return;
+        this.emit(channel, data, true);
+      })
+      .on("broadcast", { event: "ping-ack" }, () => {
+        const latency = Date.now() - this.lastPingTime;
+        if (latency > 2000) {
+          this.setStatus("poor");
+        } else {
+          this.setStatus("connected");
+        }
+      })
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          this.reconnectAttempts = 0;
+          this.setStatus("connected");
+          if (import.meta.env.DEV) {
+            console.log("[Realtime] Connected to Supabase — instance:", this.instanceId);
+          }
+        } else if (status === "CLOSED" || status === "CHANNEL_ERROR") {
+          this.handleDisconnect();
+        }
+      });
   }
 
   private handleDisconnect() {
@@ -104,24 +114,37 @@ class RealtimeService {
 
   private scheduleReconnect() {
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      if (import.meta.env.DEV) {
-        console.warn("[Realtime] Max reconnect attempts reached");
-      }
+      console.error("[Realtime] Max reconnect attempts reached");
       return;
     }
 
-    this.setStatus("reconnecting");
-    const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000);
+    const delay = Math.min(1000 * Math.pow(1.5, this.reconnectAttempts), 15000);
     this.reconnectAttempts++;
 
+    if (import.meta.env.DEV) {
+      console.log(`[Realtime] Reconnecting in ${Math.round(delay)}ms (Attempt ${this.reconnectAttempts})`);
+    }
+
     this.reconnectTimer = setTimeout(() => {
-      this.broadcastChannel?.close();
-      this.broadcastChannel = null;
       this.connect();
     }, delay);
   }
 
+  private startPing() {
+    this.pingInterval = setInterval(() => {
+      if (this._status === "connected" || this._status === "poor") {
+        this.lastPingTime = Date.now();
+        this.supabaseChannel.send({
+          type: "broadcast",
+          event: "ping",
+          payload: { timestamp: this.lastPingTime },
+        });
+      }
+    }, 10000);
+  }
+
   private setStatus(s: ConnectionStatus) {
+    if (this._status === s) return;
     this._status = s;
     this.statusListeners.forEach((fn) => fn(s));
   }
@@ -153,16 +176,16 @@ class RealtimeService {
     // Local emit
     this.emit(channel, data, false);
 
-    // Cross-tab broadcast
-    try {
-      this.broadcastChannel?.postMessage({
+    // Supabase broadcast
+    this.supabaseChannel.send({
+      type: "broadcast",
+      event: "message",
+      payload: {
         channel,
         data,
         source: this.instanceId,
-      } satisfies ChannelMessage);
-    } catch {
-      // BroadcastChannel may be closed
-    }
+      } as ChannelMessage,
+    });
   }
 
   private emit(channel: RealtimeChannel, data: unknown, fromExternal: boolean) {
@@ -188,9 +211,7 @@ class RealtimeService {
   // ── Cleanup ───────────────────────────────────────────────────────────
 
   destroy() {
-    if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
-    this.broadcastChannel?.close();
-    this.broadcastChannel = null;
+    this.supabaseChannel.unsubscribe();
     this.listeners.clear();
     this.statusListeners.clear();
     this.setStatus("disconnected");

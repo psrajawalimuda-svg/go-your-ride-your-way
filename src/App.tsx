@@ -9,6 +9,7 @@ import { RideProvider } from "@/context/RideContext";
 import { PaymentProvider } from "@/context/PaymentContext";
 import { ShuttleProvider } from "@/context/ShuttleContext";
 import { DriverProvider } from "./context/DriverContext";
+import { DriverNotificationProvider } from "./context/DriverNotificationContext";
 import Splash from "./pages/Splash";
 import Onboarding from "./pages/Onboarding";
 import Login from "./pages/Login";
@@ -41,49 +42,56 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <ThemeProvider>
+    <ThemeProvider defaultTheme="light" storageKey="pyugo-theme">
       <TooltipProvider>
         <AuthProvider>
           <RideProvider>
-            <PaymentProvider>
-              <ShuttleProvider>
-                <DriverProvider>
-                  <Toaster />
-                  <Sonner />
-                  <BrowserRouter>
-                    <Routes>
-                      <Route path="/" element={<Splash />} />
-                      <Route path="/onboarding" element={<Onboarding />} />
-                      <Route path="/login" element={<Login />} />
-                      <Route path="/home" element={<Index />} />
-                      <Route path="/shuttle" element={<Shuttle />} />
-                      <Route path="/activity" element={<Activity />} />
-                      <Route path="/wallet" element={<Wallet />} />
-                      <Route path="/profile" element={<Profile />} />
-                      <Route path="/ride/book" element={<RideBooking />} />
-                      <Route path="/ride/tracking" element={<RideTracking />} />
-                      <Route path="/payment" element={<Payment />} />
-                      <Route path="/payment/status" element={<PaymentStatus />} />
-                      <Route path="/driver/login" element={<DriverLogin />} />
-                      <Route path="/driver/register" element={<DriverRegistration />} />
-                      <Route path="/driver/home" element={<DriverHome />} />
-                      <Route path="/driver/trip" element={<DriverTrip />} />
-                      <Route path="/driver/earnings" element={<DriverEarnings />} />
-                      <Route path="/admin/login" element={<AdminLogin />} />
-                      <Route path="/admin" element={<AdminDashboard />} />
-                      <Route path="/admin/users" element={<AdminUsers />} />
-                      <Route path="/admin/drivers" element={<AdminDrivers />} />
-                      <Route path="/admin/trips" element={<AdminTrips />} />
-                      <Route path="/admin/shuttle" element={<AdminShuttle />} />
-                      <Route path="/admin/payments" element={<AdminPayments />} />
-                      <Route path="/admin/promos" element={<AdminPromos />} />
-                      <Route path="/admin/settings" element={<AdminSettings />} />
-                      <Route path="*" element={<NotFound />} />
-                    </Routes>
-                  </BrowserRouter>
-                </DriverProvider>
-              </ShuttleProvider>
-            </PaymentProvider>
+            <ShuttleProvider>
+              <DriverProvider>
+                <DriverNotificationProvider>
+                  <PaymentProvider>
+                    <Toaster />
+                    <Sonner />
+                    <BrowserRouter
+                      future={{
+                        v7_startTransition: true,
+                        v7_relativeSplatPath: true,
+                      }}
+                    >
+                      <Routes>
+                        <Route path="/" element={<Splash />} />
+                        <Route path="/onboarding" element={<Onboarding />} />
+                        <Route path="/login" element={<Login />} />
+                        <Route path="/home" element={<Index />} />
+                        <Route path="/shuttle" element={<Shuttle />} />
+                        <Route path="/activity" element={<Activity />} />
+                        <Route path="/wallet" element={<Wallet />} />
+                        <Route path="/profile" element={<Profile />} />
+                        <Route path="/ride/booking" element={<RideBooking />} />
+                        <Route path="/ride/tracking" element={<RideTracking />} />
+                        <Route path="/payment" element={<Payment />} />
+                        <Route path="/payment/status" element={<PaymentStatus />} />
+                        <Route path="/driver/login" element={<DriverLogin />} />
+                        <Route path="/driver/register" element={<DriverRegistration />} />
+                        <Route path="/driver/home" element={<DriverHome />} />
+                        <Route path="/driver/trip" element={<DriverTrip />} />
+                        <Route path="/driver/earnings" element={<DriverEarnings />} />
+                        <Route path="/admin/login" element={<AdminLogin />} />
+                        <Route path="/admin/dashboard" element={<AdminDashboard />} />
+                        <Route path="/admin/users" element={<AdminUsers />} />
+                        <Route path="/admin/drivers" element={<AdminDrivers />} />
+                        <Route path="/admin/trips" element={<AdminTrips />} />
+                        <Route path="/admin/shuttle" element={<AdminShuttle />} />
+                        <Route path="/admin/payments" element={<AdminPayments />} />
+                        <Route path="/admin/promos" element={<AdminPromos />} />
+                        <Route path="/admin/settings" element={<AdminSettings />} />
+                        <Route path="*" element={<NotFound />} />
+                      </Routes>
+                    </BrowserRouter>
+                  </PaymentProvider>
+                </DriverNotificationProvider>
+              </DriverProvider>
+            </ShuttleProvider>
           </RideProvider>
         </AuthProvider>
       </TooltipProvider>

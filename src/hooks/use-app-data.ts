@@ -87,8 +87,28 @@ export const useShuttleSchedules = () =>
     queryKey: ["app", "shuttle_schedules"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("shuttle_schedules")
-        .select("*");
+        .from("shuttle_departures")
+        .select(`
+          *,
+          route:shuttle_routes(
+            *,
+            pickup_points:shuttle_pickup_points(*)
+          )
+        `)
+        .eq("active", true);
+      if (error) throw error;
+      return data;
+    },
+  });
+
+export const useShuttleVehicleClasses = () =>
+  useQuery({
+    queryKey: ["app", "shuttle_vehicle_classes"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("shuttle_vehicle_classes")
+        .select("*")
+        .order("sort_order");
       if (error) throw error;
       return data;
     },
@@ -172,7 +192,7 @@ export const useRecentActivity = () =>
         supabase.from("trips").select("id, passenger_name, status, created_at").order("created_at", { ascending: false }).limit(3),
         supabase.from("transactions").select("id, description, status, created_at").order("created_at", { ascending: false }).limit(3),
         supabase.from("drivers").select("id, name, joined_at").order("joined_at", { ascending: false }).limit(2),
-        supabase.from("shuttle_bookings").select("id, passenger_name, status, created_at").order("created_at", { ascending: false }).limit(2),
+        (supabase as any).from("shuttle_bookings").select("id, status, created_at").order("created_at", { ascending: false }).limit(2),
       ]);
 
       const activities: { id: string; text: string; time: string; type: string }[] = [];
@@ -204,10 +224,10 @@ export const useRecentActivity = () =>
         });
       });
 
-      (bookingsRes.data || []).forEach((b) => {
+      (bookingsRes.data || []).forEach((b: any) => {
         activities.push({
           id: `booking-${b.id}`,
-          text: `Booking shuttle ${b.id} oleh ${b.passenger_name} (${b.status})`,
+          text: `Booking shuttle ${b.id} (${b.status})`,
           time: new Date(b.created_at).toLocaleString("id-ID", { dateStyle: "short", timeStyle: "short" }),
           type: "booking",
         });

@@ -24,28 +24,28 @@ interface MapViewProps {
 
 const DEFAULT_CENTER: [number, number] = [-6.2088, 106.8456];
 
-const pulseIcon = L.divIcon({
+const PulseIcon = L.divIcon({
   className: "custom-marker",
   html: `<div style="width:16px;height:16px;background:hsl(152,68%,40%);border-radius:50%;box-shadow:0 0 0 6px hsla(152,68%,40%,0.25), 0 2px 8px rgba(0,0,0,0.3);"></div>`,
   iconSize: [16, 16],
   iconAnchor: [8, 8],
 });
 
-const pickupIcon = L.divIcon({
+const PickupIcon = L.divIcon({
   className: "pickup-marker",
   html: `<div style="width:14px;height:14px;background:hsl(152,68%,40%);border:3px solid white;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.3);"></div>`,
   iconSize: [14, 14],
   iconAnchor: [7, 7],
 });
 
-const destinationIcon = L.divIcon({
+const DestinationIcon = L.divIcon({
   className: "destination-marker",
   html: `<div style="width:14px;height:14px;background:hsl(38,92%,50%);border:3px solid white;border-radius:3px;box-shadow:0 2px 6px rgba(0,0,0,0.3);"></div>`,
   iconSize: [14, 14],
   iconAnchor: [7, 7],
 });
 
-const driverIcon = L.divIcon({
+const DriverIcon = L.divIcon({
   className: "driver-marker",
   html: `<div style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;background:hsl(220,25%,10%);border-radius:50%;border:2px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -128,7 +128,7 @@ export function MapView({
     }).addTo(map);
 
     const pos = markerPosition || initialCenter;
-    const marker = L.marker(pos, { icon: pulseIcon }).addTo(map);
+    const marker = L.marker(pos, { icon: PulseIcon }).addTo(map);
     markerRef.current = marker;
     mapInstanceRef.current = map;
     routeLayerRef.current = L.layerGroup().addTo(map);
@@ -179,10 +179,10 @@ export function MapView({
     routeLayer.clearLayers();
 
     if (pickupPosition) {
-      pickupMarkerRef.current = L.marker(pickupPosition, { icon: pickupIcon }).addTo(map);
+      pickupMarkerRef.current = L.marker(pickupPosition, { icon: PickupIcon }).addTo(map);
     }
     if (destinationPosition) {
-      destMarkerRef.current = L.marker(destinationPosition, { icon: destinationIcon }).addTo(map);
+      destMarkerRef.current = L.marker(destinationPosition, { icon: DestinationIcon }).addTo(map);
     }
 
     if (showRoute && pickupPosition && destinationPosition) {
@@ -199,7 +199,7 @@ export function MapView({
     const map = mapInstanceRef.current;
     if (!map || !nearbyDrivers) return;
 
-    const markers = nearbyDrivers.map((pos) => L.marker(pos, { icon: driverIcon }).addTo(map));
+    const markers = nearbyDrivers.map((pos) => L.marker(pos, { icon: DriverIcon }).addTo(map));
     return () => { markers.forEach((m) => map.removeLayer(m)); };
   }, [nearbyDrivers]);
 
@@ -230,7 +230,7 @@ export function MapView({
 
     if (streamingDriverPosition) {
       if (!streamingMarkerRef.current) {
-        streamingMarkerRef.current = L.marker(streamingDriverPosition, { icon: driverIcon }).addTo(map);
+        streamingMarkerRef.current = L.marker(streamingDriverPosition, { icon: DriverIcon }).addTo(map);
       } else {
         // Smooth interpolation: animate from current to new position
         const currentLatLng = streamingMarkerRef.current.getLatLng();

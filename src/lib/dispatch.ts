@@ -55,8 +55,8 @@ const DRIVER_TEMPLATES = [
 // ── Dispatch Engine ─────────────────────────────────────────────────────────
 
 const MAX_RADIUS_KM = 5;
-const DISPATCH_TIMEOUT_MS = 15000;
-const AUTO_ACCEPT_DELAY_MS = () => 2000 + Math.random() * 2000;
+const DISPATCH_TIMEOUT_MS = 30000; // Total timeout for whole dispatch process
+const DRIVER_RESPONSE_TIMEOUT_MS = 10000; // Individual driver response timeout
 
 export interface MatchedDriver {
   id: string;
@@ -116,64 +116,98 @@ class DispatchEngine {
     this.driftTimers.push(timer);
   }
 
-  /** Get current positions of all online, non-busy drivers */
-  getAvailableDriverPositions(): { id: string; coords: LatLng; heading: number }[] {
+  /** Find nearest available drivers within radius, sorted by score (distance + rating) */
+  findBestDrivers(pickup: LatLng, radiusKm = MAX_RADIUS_KM): (SimDriver & { distance: number; score: number })[] {
     return this.drivers
       .filter((d) => d.status === "online" && !d.busy)
-      .map((d) => ({ id: d.id, coords: d.coords, heading: d.heading }));
+      .map((d) => {
+        const distance = haversineDistance(pickup, d.coords);
+        // Score: lower is better. 1km = 0.1 rating points.
+        const score = distance - (d.rating - 4.0) * 2;
+        return { ...d, distance, score };
+      })
+      .filter((d) => d.distance <= radiusKm)
+      .sort((a, b) => a.score - b.score);
   }
 
-  /** Find nearest available driver to pickup within MAX_RADIUS */
-  findNearest(pickup: LatLng): (SimDriver & { distance: number })[] {
-    return this.drivers
-      .filter((d) => d.status === "online" && !d.busy)
-      .map((d) => ({ ...d, distance: haversineDistance(pickup, d.coords) }))
-      .filter((d) => d.distance <= MAX_RADIUS_KM)
-      .sort((a, b) => a.distance - b.distance);
-  }
-
-  /** Request a ride — returns a Promise that resolves when driver accepts or times out */
-  requestRide(
+  /** Request a ride — implements sequential intelligent dispatch */
+  async requestRide(
     pickup: { label: string; coords: LatLng },
     dropoff: { label: string; coords: LatLng },
     fare: number,
-    passengerName: string
+    passengerName: string,
+    priority: "normal" | "premium" | "emergency" = "normal"
   ): Promise<DispatchResult> {
     this.init();
 
-    const candidates = this.findNearest(pickup.coords);
+    const radius = priority === "emergency" ? 10 : MAX_RADIUS_KM;
+    const candidates = this.findBestDrivers(pickup.coords, radius);
+    
     if (candidates.length === 0) {
-      return Promise.resolve({ success: false, reason: "no_drivers" });
+      return { success: false, reason: "no_drivers" };
     }
 
     const requestId = `REQ-${Date.now()}`;
-    const bestDriver = candidates[0];
+    const overallTimeout = setTimeout(() => {}, DISPATCH_TIMEOUT_MS);
 
-    // Publish dispatch request (cross-tab for real driver tab)
-    realtime.publish("dispatch:request", {
-      requestId,
-      pickup,
-      dropoff,
-      fare,
-      passengerName,
-      estimatedDistance: `${bestDriver.distance.toFixed(1)} km`,
-      estimatedDuration: `${Math.ceil(bestDriver.distance * 3)} min`,
-    });
+    // Try up to 3 nearest drivers sequentially
+    const driversToTry = candidates.slice(0, 3);
+    
+    for (const targetDriver of driversToTry) {
+      const result = await this.dispatchToDriver(requestId, targetDriver, pickup, dropoff, fare, passengerName, priority);
+      if (result.success) {
+        clearTimeout(overallTimeout);
+        return result;
+      }
+      if (result.reason === "timeout") {
+        if (import.meta.env.DEV) console.log(`Driver ${targetDriver.name} timed out, trying next...`);
+        continue;
+      }
+      if (result.reason === "rejected") {
+        if (import.meta.env.DEV) console.log(`Driver ${targetDriver.name} rejected, trying next...`);
+        continue;
+      }
+    }
 
-    return new Promise<DispatchResult>((resolve) => {
+    clearTimeout(overallTimeout);
+    return { success: false, reason: "timeout" };
+  }
+
+  private dispatchToDriver(
+    requestId: string,
+    driver: SimDriver & { distance: number },
+    pickup: { label: string; coords: LatLng },
+    dropoff: { label: string; coords: LatLng },
+    fare: number,
+    passengerName: string,
+    priority: string
+  ): Promise<DispatchResult> {
+    return new Promise((resolve) => {
       let settled = false;
 
-      // Listen for response from driver tab
+      // 1. Publish targeted request
+      realtime.publish("dispatch:request", {
+        requestId,
+        pickup,
+        dropoff,
+        fare,
+        passengerName,
+        estimatedDistance: `${driver.distance.toFixed(1)} km`,
+        estimatedDuration: `${Math.ceil(driver.distance * 3)} min`,
+        priority: priority as any,
+        driverId: driver.id
+      });
+
+      // 2. Listen for response
       const unsub = realtime.subscribe("dispatch:response", (data) => {
-        if (data.requestId !== requestId || settled) return;
+        if (data.requestId !== requestId || data.driverId !== driver.id || settled) return;
         settled = true;
         unsub();
-        clearTimeout(timeoutId);
-        clearTimeout(autoAcceptId);
+        clearTimeout(timerId);
 
         if (data.accepted) {
-          const driver = this.drivers.find((d) => d.id === data.driverId) || bestDriver;
-          driver.busy = true;
+          const d = this.drivers.find(dr => dr.id === driver.id);
+          if (d) d.busy = true;
           resolve({
             success: true,
             driver: {
@@ -184,53 +218,21 @@ class DispatchEngine {
               plate: driver.plate,
               rating: driver.rating,
               coords: driver.coords,
-              distance: haversineDistance(pickup.coords, driver.coords),
-            },
+              distance: driver.distance,
+            }
           });
         } else {
           resolve({ success: false, reason: "rejected" });
         }
       });
 
-      // Auto-accept in single-tab mode after a delay (simulating driver accepting)
-      const autoAcceptId = setTimeout(() => {
+      // 3. Driver timeout (no response)
+      const timerId = setTimeout(() => {
         if (settled) return;
         settled = true;
         unsub();
-        clearTimeout(timeoutId);
-
-        bestDriver.busy = true;
-
-        // Publish response so RideTracking picks it up
-        realtime.publish("dispatch:response", {
-          requestId,
-          accepted: true,
-          driverId: bestDriver.id,
-        });
-
-        resolve({
-          success: true,
-          driver: {
-            id: bestDriver.id,
-            name: bestDriver.name,
-            initials: bestDriver.initials,
-            vehicle: bestDriver.vehicle,
-            plate: bestDriver.plate,
-            rating: bestDriver.rating,
-            coords: bestDriver.coords,
-            distance: bestDriver.distance,
-          },
-        });
-      }, AUTO_ACCEPT_DELAY_MS());
-
-      // Timeout
-      const timeoutId = setTimeout(() => {
-        if (settled) return;
-        settled = true;
-        unsub();
-        clearTimeout(autoAcceptId);
         resolve({ success: false, reason: "timeout" });
-      }, DISPATCH_TIMEOUT_MS);
+      }, DRIVER_RESPONSE_TIMEOUT_MS);
     });
   }
 

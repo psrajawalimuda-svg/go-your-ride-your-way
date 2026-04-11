@@ -10,17 +10,19 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { usePayment } from "@/context/PaymentContext";
+import { useShuttle } from "@/context/ShuttleContext";
 import { format } from "date-fns";
 import { QRCodeSVG } from "qrcode.react";
 import html2canvas from "html2canvas";
-import { useShuttleSchedules } from "@/hooks/use-app-data";
+import { useShuttleSchedules, useShuttleVehicleClasses } from "@/hooks/use-app-data";
+import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -73,52 +75,72 @@ function formatPrice(n: number) {
 
 export default function Shuttle() {
   const navigate = useNavigate();
-  const { createTransaction } = usePayment();
+  const { createBooking } = useShuttle();
   const { data: dbSchedules, isLoading: schedulesLoading } = useShuttleSchedules();
+  const { data: vehicleClasses, isLoading: loadingClasses } = useShuttleVehicleClasses();
 
   // Derive cities from DB schedules
   const CITIES = useMemo(() => {
     if (!dbSchedules) return [];
     const cities = new Set<string>();
-    dbSchedules.forEach((s) => { cities.add(s.from_city); cities.add(s.to_city); });
+    dbSchedules.forEach((s) => { 
+      cities.add(s.route.from_city); 
+      cities.add(s.route.to_city); 
+    });
     return Array.from(cities).sort();
   }, [dbSchedules]);
-
-  // Map DB schedules to local format
-  const ALL_SCHEDULES: Schedule[] = useMemo(() => {
-    if (!dbSchedules) return [];
-    return dbSchedules.map((s) => ({
-      id: s.id,
-      from: s.from_city,
-      to: s.to_city,
-      departure: s.departure,
-      arrival: s.arrival,
-      duration: s.duration,
-      price: s.price,
-      operator: s.operator,
-      totalSeats: s.total_seats,
-      availableSeats: s.available_seats,
-    }));
-  }, [dbSchedules]);
-
-  const [step, setStep] = useState<BookingStep>("search");
-  const stepIdx = STEPS.indexOf(step);
 
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [date, setDate] = useState<Date | undefined>(new Date());
   const [passengerCount, setPassengerCount] = useState(1);
-  const [selectedSchedule, setSelectedSchedule] = useState<Schedule | null>(null);
+  const [selectedSchedule, setSelectedSchedule] = useState<any>(null);
+
+  // Map DB schedules to local format
+  const currentSchedules = useMemo(() => {
+    if (!dbSchedules || !vehicleClasses) return [];
+    
+    // Flatten schedules by vehicle class to show multiple options for each departure
+    const flattened: any[] = [];
+    dbSchedules.forEach((s: any) => {
+      vehicleClasses.forEach((vc: any) => {
+        const distanceKm = s.route.total_distance_m / 1000;
+        const price = Math.round(distanceKm * vc.price_per_km / 1000) * 1000;
+        
+        flattened.push({
+          id: s.id,
+          vehicle_class_id: vc.id,
+          from: s.route.from_city,
+          to: s.route.to_city,
+          departure: s.departure_time,
+          arrival: s.arrival_time,
+          duration: s.duration || "1h 30m",
+          price: price,
+          operator: "PYU Shuttle",
+          vehicleClass: vc.name,
+          layout: vc.seating_layouts?.Hiace || vc.seating_layouts?.SUV,
+          pickupPoints: s.route.pickup_points,
+          totalSeats: vc.seating_layouts?.Hiace?.total_seats || vc.seating_layouts?.SUV?.total_seats || 10,
+          availableSeats: (vc.seating_layouts?.Hiace?.total_seats || vc.seating_layouts?.SUV?.total_seats || 10) - Math.floor(Math.random() * 5)
+        });
+      });
+    });
+
+    return flattened.filter(s => 
+      (!from || s.from === from) &&
+      (!to || s.to === to)
+    );
+  }, [dbSchedules, vehicleClasses, from, to]);
+  const [step, setStep] = useState<BookingStep>("search");
+  const [submitting, setSubmitting] = useState(false);
+  const stepIdx = STEPS.indexOf(step);
   const [seatMap, setSeatMap] = useState<SeatStatus[]>([]);
   const [selectedSeats, setSelectedSeats] = useState<number[]>([]);
   const [passengers, setPassengers] = useState<Passenger[]>([]);
   const [paymentMethod, setPaymentMethod] = useState("ewallet");
   const [bookingId, setBookingId] = useState("");
 
-  const filteredSchedules = useMemo(
-    () => ALL_SCHEDULES.filter((s) => s.from === from && s.to === to),
-    [from, to, ALL_SCHEDULES]
-  );
+  const totalPrice = selectedSchedule ? selectedSchedule.price * passengerCount : 0;
 
   const ticketRef = useRef<HTMLDivElement>(null);
 
@@ -177,21 +199,38 @@ export default function Shuttle() {
     setStep("passenger");
   };
 
-  const goToPayment = () => {
+  const goToPayment = async () => {
     const valid = passengers.every((p, i) => p.name.trim() && p.phone.trim() && (i > 0 || p.email.trim()));
     if (!valid) return;
-    setStep("payment");
+
+    setSubmitting(true);
+    try {
+      const dbSch = dbSchedules?.find(s => s.id === selectedSchedule?.id);
+      if (!dbSch) return;
+
+      const pickupPointId = selectedSchedule.pickupPoints?.[0]?.id;
+      const id = await createBooking({
+        departureId: selectedSchedule.id,
+        vehicleClassId: selectedSchedule.vehicle_class_id,
+        pickupPointId: pickupPointId,
+        seats: selectedSeats,
+        passengers: passengers,
+        totalPrice: selectedSchedule.price * passengerCount,
+      });
+
+      if (id) {
+        setBookingId(id);
+        setStep("payment");
+      }
+    } catch (error) {
+      toast.error("Failed to create booking");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const confirmBooking = () => {
-    const id = "PYU-" + Math.random().toString(36).substring(2, 8).toUpperCase();
-    setBookingId(id);
-    createTransaction({
-      amount: totalPrice,
-      description: `Shuttle: ${from} → ${to}`,
-      returnPath: "/shuttle",
-    });
-    navigate("/payment");
+    setStep("ticket");
   };
 
   const resetBooking = () => {
@@ -216,8 +255,6 @@ export default function Shuttle() {
       return [...prev, idx];
     });
   };
-
-  const totalPrice = selectedSchedule ? selectedSchedule.price * passengerCount : 0;
 
   const anim = { initial: { opacity: 0, x: 30 }, animate: { opacity: 1, x: 0 }, exit: { opacity: 0, x: -30 }, transition: { duration: 0.2 } };
 
@@ -349,41 +386,51 @@ export default function Shuttle() {
                 <span className="ml-auto text-xs text-muted-foreground font-normal">{date && format(date, "dd MMM yyyy")}</span>
               </div>
 
-              {filteredSchedules.length === 0 ? (
+              {currentSchedules.length === 0 ? (
                 <Card className="p-8 rounded-2xl text-center">
                   <Bus className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
                   <p className="text-sm text-muted-foreground">No shuttles found for this route</p>
                 </Card>
               ) : (
-                filteredSchedules.map((sch, i) => (
-                  <motion.div key={sch.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
-                    <button
-                      onClick={() => setSelectedSchedule(sch)}
-                      className={cn(
-                        "w-full text-left p-4 rounded-2xl border transition-all",
-                        selectedSchedule?.id === sch.id ? "border-primary bg-primary/5" : "border-border bg-card hover:border-primary/20"
-                      )}
+                currentSchedules.map((schedule: any) => (
+                  <motion.div key={`${schedule.id}-${schedule.vehicle_class_id}`} whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}>
+                    <Card 
+                      className="p-4 rounded-2xl border-2 hover:border-primary transition-colors cursor-pointer"
+                      onClick={() => {
+                        setSelectedSchedule(schedule);
+                        setStep("seats");
+                      }}
                     >
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs font-bold text-primary">{sch.operator}</span>
-                        <span className="text-sm font-extrabold">{formatPrice(sch.price)}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-lg font-bold">{sch.departure}</span>
-                        <div className="flex-1 flex items-center gap-1">
-                          <div className="h-px flex-1 bg-border" />
-                          <Bus className="h-3 w-3 text-muted-foreground" />
-                          <div className="h-px flex-1 bg-border" />
+                      <div className="flex justify-between items-start mb-4">
+                        <div className="flex items-center gap-2">
+                          <Bus className="h-4 w-4 text-primary" />
+                          <span className="text-sm font-bold">{schedule.operator}</span>
+                          <Badge variant="secondary" className="text-[10px] uppercase font-bold">{schedule.vehicleClass}</Badge>
                         </div>
-                        <span className="text-lg font-bold">{sch.arrival}</span>
-                      </div>
-                      <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {sch.duration}</span>
-                        <span className={cn("flex items-center gap-1", sch.availableSeats <= 5 && "text-destructive font-semibold")}>
-                          <Users className="h-3 w-3" /> {sch.availableSeats} seats left
+                        <span className="text-lg font-black text-primary">
+                          {new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(schedule.price)}
                         </span>
                       </div>
-                    </button>
+                      
+                      <div className="flex items-center gap-6">
+                        <div className="text-center">
+                          <p className="text-xl font-black">{schedule.departure}</p>
+                          <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">{schedule.from}</p>
+                        </div>
+                        <div className="flex-1 flex flex-col items-center">
+                          <div className="w-full h-[2px] bg-border relative">
+                            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-background px-2">
+                              <Clock className="h-3 w-3 text-muted-foreground" />
+                            </div>
+                          </div>
+                          <p className="text-[10px] text-muted-foreground mt-1 font-bold">{schedule.duration}</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-xl font-black">{schedule.arrival}</p>
+                          <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">{schedule.to}</p>
+                        </div>
+                      </div>
+                    </Card>
                   </motion.div>
                 ))
               )}
@@ -535,10 +582,10 @@ export default function Shuttle() {
 
               <Button
                 onClick={goToPayment}
-                disabled={!passengers.every((p, i) => p.name.trim() && p.phone.trim() && (i > 0 || p.email.trim()))}
+                disabled={submitting || !passengers.every((p, i) => p.name.trim() && p.phone.trim() && (i > 0 || p.email.trim()))}
                 className="w-full h-12 rounded-2xl text-base font-bold"
               >
-                Continue to Payment
+                {submitting ? "Creating Booking..." : "Continue to Payment"}
               </Button>
             </motion.div>
           )}
