@@ -130,3 +130,26 @@ export const useUpdatePromoActive = () => {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "promos"] }),
   });
 };
+
+// ─── Settings ───────────────────────────────────────────────────────────────
+
+export const useAdminSettings = () =>
+  useQuery({
+    queryKey: ["admin", "settings"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("app_settings").select("*").order("key");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+export const useUpdateSetting = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ key, value }: { key: string; value: string }) => {
+      const { error } = await supabase.from("app_settings").update({ value, updated_at: new Date().toISOString() }).eq("key", key);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "settings"] }),
+  });
+};

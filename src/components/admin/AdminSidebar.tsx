@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, Car, MapPin, Bus, CreditCard, Megaphone, LogOut } from "lucide-react";
+import { LayoutDashboard, Users, Car, MapPin, Bus, CreditCard, Megaphone, Settings, LogOut } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import {
@@ -23,6 +23,7 @@ const menuItems = [
   { title: "Shuttle", url: "/admin/shuttle", icon: Bus },
   { title: "Payments", url: "/admin/payments", icon: CreditCard },
   { title: "Promos", url: "/admin/promos", icon: Megaphone },
+  { title: "Settings", url: "/admin/settings", icon: Settings },
 ];
 
 interface AdminSidebarProps {

@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_settings: {
+        Row: {
+          category: string
+          description: string | null
+          id: string
+          key: string
+          label: string
+          updated_at: string
+          value: Json
+        }
+        Insert: {
+          category?: string
+          description?: string | null
+          id?: string
+          key: string
+          label: string
+          updated_at?: string
+          value?: Json
+        }
+        Update: {
+          category?: string
+          description?: string | null
+          id?: string
+          key?: string
+          label?: string
+          updated_at?: string
+          value?: Json
+        }
+        Relationships: []
+      }
       app_users: {
         Row: {
           created_at: string
