@@ -17,6 +17,8 @@ const STATUS_LABELS: Record<string, { label: string; action: string }> = {
   completed: { label: "Trip completed!", action: "Back to Home" },
 };
 
+import { ConnectionStatusBadge } from "@/components/ConnectionStatusBadge";
+
 export default function DriverTrip() {
   const navigate = useNavigate();
   const { isAuthenticated, driverId, tripStatus, currentTrip, advanceTrip } = useDriver();
@@ -98,11 +100,12 @@ export default function DriverTrip() {
 
         {/* Status header */}
         <div className="absolute top-0 left-0 right-0 z-[1000] p-4">
-          <Card className="p-3 bg-card/95 backdrop-blur-sm">
+          <Card className="p-3 bg-card/95 backdrop-blur-sm flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className={`w-2.5 h-2.5 rounded-full ${tripStatus === "completed" ? "bg-primary" : "bg-primary animate-pulse"}`} />
               <span className="font-semibold text-sm text-foreground">{statusInfo.label}</span>
             </div>
+            <ConnectionStatusBadge />
           </Card>
         </div>
 

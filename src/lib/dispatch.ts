@@ -247,6 +247,10 @@ class DispatchEngine {
     this.driftTimers = [];
     this.drivers = [];
     this._initialized = false;
+  /** Release a driver after a trip or cancellation */
+  releaseDriver(id: string) {
+    const d = this.drivers.find((dr) => dr.id === id);
+    if (d) d.busy = false;
   }
 }
 

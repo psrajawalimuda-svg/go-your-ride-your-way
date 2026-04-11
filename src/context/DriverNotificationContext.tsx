@@ -83,7 +83,15 @@ export function DriverNotificationProvider({ children }: { children: ReactNode }
       driverId: driverId || "sim-driver-1" // Fallback for sim
     });
 
-    acceptRide();
+    acceptRide({
+      id: currentNotification.requestId,
+      passengerName: currentNotification.passengerName,
+      pickup: currentNotification.pickup,
+      dropoff: currentNotification.dropoff,
+      estimatedFare: currentNotification.fare,
+      estimatedDistance: currentNotification.estimatedDistance,
+      estimatedDuration: currentNotification.estimatedDuration,
+    });
     setCurrentNotification(null);
   }, [currentNotification, driverId, acceptRide]);
 

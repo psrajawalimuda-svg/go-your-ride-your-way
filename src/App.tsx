@@ -38,6 +38,8 @@ import AdminPayments from "./pages/admin/AdminPayments";
 import AdminPromos from "./pages/admin/AdminPromos";
 import AdminSettings from "./pages/admin/AdminSettings";
 
+import { ProtectedRoute } from "./components/ProtectedRoute";
+
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -62,29 +64,36 @@ const App = () => (
                         <Route path="/" element={<Splash />} />
                         <Route path="/onboarding" element={<Onboarding />} />
                         <Route path="/login" element={<Login />} />
-                        <Route path="/home" element={<Index />} />
-                        <Route path="/shuttle" element={<Shuttle />} />
-                        <Route path="/activity" element={<Activity />} />
-                        <Route path="/wallet" element={<Wallet />} />
-                        <Route path="/profile" element={<Profile />} />
-                        <Route path="/ride/booking" element={<RideBooking />} />
-                        <Route path="/ride/tracking" element={<RideTracking />} />
-                        <Route path="/payment" element={<Payment />} />
-                        <Route path="/payment/status" element={<PaymentStatus />} />
+                        
+                        {/* Passenger Routes */}
+                        <Route path="/home" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+                        <Route path="/shuttle" element={<ProtectedRoute><Shuttle /></ProtectedRoute>} />
+                        <Route path="/activity" element={<ProtectedRoute><Activity /></ProtectedRoute>} />
+                        <Route path="/wallet" element={<ProtectedRoute><Wallet /></ProtectedRoute>} />
+                        <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+                        <Route path="/ride/booking" element={<ProtectedRoute><RideBooking /></ProtectedRoute>} />
+                        <Route path="/ride/tracking" element={<ProtectedRoute><RideTracking /></ProtectedRoute>} />
+                        <Route path="/payment" element={<ProtectedRoute><Payment /></ProtectedRoute>} />
+                        <Route path="/payment/status" element={<ProtectedRoute><PaymentStatus /></ProtectedRoute>} />
+                        
+                        {/* Driver Routes */}
                         <Route path="/driver/login" element={<DriverLogin />} />
-                        <Route path="/driver/register" element={<DriverRegistration />} />
-                        <Route path="/driver/home" element={<DriverHome />} />
-                        <Route path="/driver/trip" element={<DriverTrip />} />
-                        <Route path="/driver/earnings" element={<DriverEarnings />} />
+                        <Route path="/driver/register" element={<ProtectedRoute><DriverRegistration /></ProtectedRoute>} />
+                        <Route path="/driver/home" element={<ProtectedRoute allowedRoles={["driver"]}><DriverHome /></ProtectedRoute>} />
+                        <Route path="/driver/trip" element={<ProtectedRoute allowedRoles={["driver"]}><DriverTrip /></ProtectedRoute>} />
+                        <Route path="/driver/earnings" element={<ProtectedRoute allowedRoles={["driver"]}><DriverEarnings /></ProtectedRoute>} />
+                        
+                        {/* Admin Routes */}
                         <Route path="/admin/login" element={<AdminLogin />} />
-                        <Route path="/admin/dashboard" element={<AdminDashboard />} />
-                        <Route path="/admin/users" element={<AdminUsers />} />
-                        <Route path="/admin/drivers" element={<AdminDrivers />} />
-                        <Route path="/admin/trips" element={<AdminTrips />} />
-                        <Route path="/admin/shuttle" element={<AdminShuttle />} />
-                        <Route path="/admin/payments" element={<AdminPayments />} />
-                        <Route path="/admin/promos" element={<AdminPromos />} />
-                        <Route path="/admin/settings" element={<AdminSettings />} />
+                        <Route path="/admin/dashboard" element={<ProtectedRoute allowedRoles={["admin"]}><AdminDashboard /></ProtectedRoute>} />
+                        <Route path="/admin/users" element={<ProtectedRoute allowedRoles={["admin"]}><AdminUsers /></ProtectedRoute>} />
+                        <Route path="/admin/drivers" element={<ProtectedRoute allowedRoles={["admin"]}><AdminDrivers /></ProtectedRoute>} />
+                        <Route path="/admin/trips" element={<ProtectedRoute allowedRoles={["admin"]}><AdminTrips /></ProtectedRoute>} />
+                        <Route path="/admin/shuttle" element={<ProtectedRoute allowedRoles={["admin"]}><AdminShuttle /></ProtectedRoute>} />
+                        <Route path="/admin/payments" element={<ProtectedRoute allowedRoles={["admin"]}><AdminPayments /></ProtectedRoute>} />
+                        <Route path="/admin/promos" element={<ProtectedRoute allowedRoles={["admin"]}><AdminPromos /></ProtectedRoute>} />
+                        <Route path="/admin/settings" element={<ProtectedRoute allowedRoles={["admin"]}><AdminSettings /></ProtectedRoute>} />
+                        
                         <Route path="*" element={<NotFound />} />
                       </Routes>
                     </BrowserRouter>

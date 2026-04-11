@@ -9,16 +9,26 @@ interface ThemeContextType {
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
-export function ThemeProvider({ children }: { children: ReactNode }) {
+interface ThemeProviderProps {
+  children: ReactNode;
+  defaultTheme?: Theme;
+  storageKey?: string;
+}
+
+export function ThemeProvider({ 
+  children, 
+  defaultTheme = "light", 
+  storageKey = "pyugo_theme" 
+}: ThemeProviderProps) {
   const [theme, setTheme] = useState<Theme>(() => {
-    const stored = localStorage.getItem("pyugo_theme") as Theme | null;
-    return stored || "light";
+    const stored = localStorage.getItem(storageKey) as Theme | null;
+    return stored || defaultTheme;
   });
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", theme === "dark");
-    localStorage.setItem("pyugo_theme", theme);
-  }, [theme]);
+    localStorage.setItem(storageKey, theme);
+  }, [theme, storageKey]);
 
   const toggleTheme = () => setTheme((t) => (t === "light" ? "dark" : "light"));
 

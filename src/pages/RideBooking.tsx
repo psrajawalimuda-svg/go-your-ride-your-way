@@ -25,6 +25,8 @@ function calcFare(baseFare: number, perKm: number, distKm: number) {
   return Math.round((baseFare + distKm * perKm) / 1000) * 1000;
 }
 
+import { ConnectionStatusBadge } from "@/components/ConnectionStatusBadge";
+
 type Step = "location" | "fare" | "confirm";
 
 export default function RideBooking() {
@@ -226,13 +228,14 @@ export default function RideBooking() {
           </button>
         </div>
 
-        {step === "location" && (
-          <div className="absolute top-4 right-4 z-[1000]">
+        <div className="absolute top-4 right-4 z-[1000] flex flex-col items-end gap-2">
+          <ConnectionStatusBadge />
+          {step === "location" && (
             <div className="bg-card rounded-xl px-3 py-1.5 shadow-sm border border-border text-xs font-semibold text-muted-foreground">
               Tap map to set {pickingField}
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
         <RideBottomSheet animationKey={step}>
           {step === "location" && (

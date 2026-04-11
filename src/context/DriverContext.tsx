@@ -100,26 +100,6 @@ export function DriverProvider({ children }: { children: ReactNode }) {
     status === "online" && tripStatus === "idle"
   );
 
-  // Listen for dispatch requests from passenger tab
-  useEffect(() => {
-    if (status !== "online" || tripStatus !== "idle") return;
-
-    const unsub = realtime.subscribe("dispatch:request", (data) => {
-      setCurrentRequest({
-        id: data.requestId,
-        passengerName: data.passengerName,
-        pickup: data.pickup,
-        dropoff: data.dropoff,
-        estimatedFare: data.fare,
-        estimatedDistance: data.estimatedDistance,
-        estimatedDuration: data.estimatedDuration,
-      });
-      setTripStatus("requesting");
-    });
-
-    return unsub;
-  }, [status, tripStatus]);
-
   const login = useCallback((ph: string) => {
     setPhone(ph);
     setIsAuthenticated(true);
@@ -150,26 +130,17 @@ export function DriverProvider({ children }: { children: ReactNode }) {
     setTripStatus("requesting");
   }, [status, tripStatus]);
 
-  const acceptRide = useCallback(() => {
-    if (!currentRequest) return;
-    setCurrentTrip(currentRequest);
-    setCurrentRequest(null);
+  const acceptRide = useCallback((request: RideRequest) => {
+    setCurrentTrip(request);
     setTripStatus("navigating_to_pickup");
-
-    // Publish dispatch response
-    realtime.publish("dispatch:response", {
-      requestId: currentRequest.id,
-      accepted: true,
-      driverId: DRIVER_ID,
-    });
 
     // Publish trip status
     realtime.publish("trip:status", {
-      tripId: currentRequest.id,
+      tripId: request.id,
       status: "navigating_to_pickup",
       timestamp: Date.now(),
     });
-  }, [currentRequest]);
+  }, []);
 
   const rejectRide = useCallback(() => {
     if (currentRequest) {

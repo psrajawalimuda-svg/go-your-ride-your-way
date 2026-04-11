@@ -1,39 +1,39 @@
 import { useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDriver } from "@/context/DriverContext";
+import { useDriverNotifications } from "@/context/DriverNotificationContext";
 import { DriverLayout } from "@/components/driver/DriverLayout";
 import { MapView } from "@/components/MapView";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { MapPin, Navigation, Clock, DollarSign, X, Check, User, LogOut, BarChart3, Wifi, WifiOff } from "lucide-react";
+import { MapPin, Navigation, Clock, DollarSign, X, Check, User, LogOut, BarChart3, Bell } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useConnectionStatus } from "@/hooks/use-realtime";
+import { ConnectionStatusBadge } from "@/components/ConnectionStatusBadge";
 
 export default function DriverHome() {
   const navigate = useNavigate();
   const {
-    isAuthenticated, driverName, status, tripStatus, currentRequest,
-    toggleStatus, acceptRide, rejectRide, simulateRequest, logout,
+    isAuthenticated, driverName, status, tripStatus,
+    toggleStatus, logout,
   } = useDriver();
 
-  const connectionStatus = useConnectionStatus();
+  const { 
+    currentNotification, 
+    acceptCurrent, 
+    declineCurrent,
+    queue
+  } = useDriverNotifications();
 
   useEffect(() => {
     if (!isAuthenticated) navigate("/driver/login");
   }, [isAuthenticated, navigate]);
 
-  // Simulate incoming requests when online (fallback if no cross-tab dispatch)
-  useEffect(() => {
-    if (status !== "online" || tripStatus !== "idle") return;
-    const timer = setTimeout(() => simulateRequest(), 8000 + Math.random() * 12000);
-    return () => clearTimeout(timer);
-  }, [status, tripStatus, simulateRequest]);
-
   const handleAccept = useCallback(() => {
-    acceptRide();
+    acceptCurrent();
     navigate("/driver/trip");
-  }, [acceptRide, navigate]);
+  }, [acceptCurrent, navigate]);
 
   const formatRupiah = (n: number) => `Rp ${n.toLocaleString("id-ID")}`;
 
@@ -61,20 +61,20 @@ export default function DriverHome() {
                   <p className={`text-xs font-medium ${status === "online" ? "text-primary" : "text-muted-foreground"}`}>
                     {status === "online" ? "Online" : "Offline"}
                   </p>
-                  {status === "online" && (
-                    <span className="flex items-center gap-0.5">
-                      {connectionStatus === "connected" ? (
-                        <Wifi className="h-3 w-3 text-primary" />
-                      ) : (
-                        <WifiOff className="h-3 w-3 text-destructive" />
-                      )}
-                    </span>
-                  )}
+                  {status === "online" && <ConnectionStatusBadge />}
                 </div>
               </div>
             </div>
             <div className="flex items-center gap-3">
               <Switch checked={status === "online"} onCheckedChange={toggleStatus} />
+              {queue.length > 0 && (
+                <div className="relative">
+                  <Bell className="h-5 w-5 text-primary animate-bounce" />
+                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-destructive text-white text-[10px] rounded-full flex items-center justify-center font-bold">
+                    {queue.length}
+                  </span>
+                </div>
+              )}
               <button onClick={() => navigate("/driver/earnings")} className="p-2 hover:bg-secondary rounded-lg">
                 <BarChart3 className="h-5 w-5 text-foreground" />
               </button>
@@ -95,7 +95,7 @@ export default function DriverHome() {
           </div>
         )}
 
-        {status === "online" && tripStatus === "idle" && (
+        {status === "online" && tripStatus === "idle" && !currentNotification && (
           <div className="absolute bottom-8 left-4 right-4 z-[1000]">
             <Card className="p-4 text-center bg-card/95 backdrop-blur-sm">
               <div className="flex items-center justify-center gap-2">
@@ -108,7 +108,7 @@ export default function DriverHome() {
 
         {/* Ride Request Overlay */}
         <AnimatePresence>
-          {tripStatus === "requesting" && currentRequest && (
+          {currentNotification && (
             <motion.div
               initial={{ y: "100%" }}
               animate={{ y: 0 }}
@@ -116,11 +116,27 @@ export default function DriverHome() {
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
               className="absolute bottom-0 left-0 right-0 z-[1001] p-4"
             >
-              <Card className="p-5 bg-card border-2 border-primary/30 shadow-xl">
+              <Card className="p-5 bg-card border-2 border-primary/30 shadow-xl relative overflow-hidden">
+                {/* Progress bar for auto-dismiss */}
+                <motion.div 
+                  initial={{ width: "100%" }}
+                  animate={{ width: 0 }}
+                  transition={{ duration: 30, ease: "linear" }}
+                  className="absolute top-0 left-0 h-1 bg-primary/20"
+                />
+
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-bold text-lg text-foreground">New Ride Request</h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-bold text-lg text-foreground">New Ride Request</h3>
+                    {currentNotification.priority === "premium" && (
+                      <Badge className="bg-amber-500 text-white text-[10px]">PREMIUM</Badge>
+                    )}
+                    {currentNotification.priority === "emergency" && (
+                      <Badge variant="destructive" className="animate-pulse text-[10px]">EMERGENCY</Badge>
+                    )}
+                  </div>
                   <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full font-semibold">
-                    {currentRequest.estimatedDuration}
+                    {currentNotification.estimatedDuration}
                   </span>
                 </div>
 
@@ -131,7 +147,7 @@ export default function DriverHome() {
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground">Pickup</p>
-                      <p className="font-medium text-sm text-foreground">{currentRequest.pickup.label}</p>
+                      <p className="font-medium text-sm text-foreground">{currentNotification.pickup.label}</p>
                     </div>
                   </div>
                   <div className="flex items-start gap-3">
@@ -140,7 +156,7 @@ export default function DriverHome() {
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground">Dropoff</p>
-                      <p className="font-medium text-sm text-foreground">{currentRequest.dropoff.label}</p>
+                      <p className="font-medium text-sm text-foreground">{currentNotification.dropoff.label}</p>
                     </div>
                   </div>
                 </div>
@@ -148,15 +164,15 @@ export default function DriverHome() {
                 <div className="flex items-center justify-between mb-5 px-2">
                   <div className="flex items-center gap-1.5">
                     <User className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm text-foreground">{currentRequest.passengerName}</span>
+                    <span className="text-sm text-foreground">{currentNotification.passengerName}</span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <Clock className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm text-foreground">{currentRequest.estimatedDistance}</span>
+                    <span className="text-sm text-foreground">{currentNotification.estimatedDistance}</span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <DollarSign className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm font-bold text-foreground">{formatRupiah(currentRequest.estimatedFare)}</span>
+                    <span className="text-sm font-bold text-foreground">{formatRupiah(currentNotification.fare)}</span>
                   </div>
                 </div>
 
@@ -164,7 +180,7 @@ export default function DriverHome() {
                   <Button
                     variant="destructive"
                     size="lg"
-                    onClick={rejectRide}
+                    onClick={() => declineCurrent()}
                     className="h-14 text-base font-bold rounded-xl"
                   >
                     <X className="mr-1 h-5 w-5" /> Reject
@@ -172,7 +188,7 @@ export default function DriverHome() {
                   <Button
                     size="lg"
                     onClick={handleAccept}
-                    className="h-14 text-base font-bold rounded-xl"
+                    className="h-14 text-base font-bold rounded-xl shadow-lg shadow-primary/20"
                   >
                     <Check className="mr-1 h-5 w-5" /> Accept
                   </Button>

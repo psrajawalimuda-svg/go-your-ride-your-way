@@ -22,6 +22,9 @@ import {
 
 const SEARCH_TIMEOUT = 15000;
 
+import { ConnectionStatusBadge } from "@/components/ConnectionStatusBadge";
+import { SOSButton } from "@/components/ride/SOSButton";
+
 export default function RideTracking() {
   const navigate = useNavigate();
   const { ride, setRide, resetRide, requestRide } = useRide();
@@ -179,10 +182,14 @@ export default function RideTracking() {
         </div>
 
         {/* Top controls */}
-        <div className="absolute top-4 left-4 z-[1000]">
-          <button onClick={() => setShowCancelDialog(true)} className="p-2 rounded-xl bg-card border border-border shadow-sm">
+        <div className="absolute top-4 left-4 right-4 z-[1000] flex justify-between items-start">
+          <button 
+            onClick={() => setShowCancelDialog(true)} 
+            className="w-10 h-10 rounded-full bg-card shadow-lg flex items-center justify-center border border-border"
+          >
             <ArrowLeft className="h-5 w-5" />
           </button>
+          <ConnectionStatusBadge />
         </div>
         <div className="absolute top-4 right-4 z-[1000]">
           <button className="bg-destructive rounded-xl px-3 py-1.5 shadow-sm">

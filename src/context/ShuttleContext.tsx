@@ -42,7 +42,7 @@ export function ShuttleProvider({ children }: { children: ReactNode }) {
       }
 
       try {
-        const { data: bookingId, error } = await (supabase as any).rpc("create_shuttle_booking", {
+        const { data: bookingId, error } = await (supabase as any).rpc("create_shuttle_booking_v3", {
           p_user_id: user.id,
           p_departure_id: data.departureId,
           p_vehicle_class_id: data.vehicleClassId,
