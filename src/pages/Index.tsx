@@ -30,6 +30,13 @@ const recentPlaces = [
   { name: "Home", address: "Jl. Kemang Raya No. 15", icon: Star },
 ];
 
+const promoSlides = [
+  { title: "50% Off First Ride!", subtitle: "Use code WELCOME50", icon: Percent, bg: "from-purple-500 to-indigo-600" },
+  { title: "Refer & Earn Rp 50K", subtitle: "Invite friends, get rewards", icon: Users, bg: "from-blue-500 to-cyan-500" },
+  { title: "New! Airport Express", subtitle: "Fixed fare, no surge pricing", icon: Sparkles, bg: "from-emerald-500 to-teal-600" },
+  { title: "Weekend Bonus", subtitle: "2x points on all rides", icon: Gift, bg: "from-orange-500 to-red-500" },
+];
+
 export default function Index() {
   const navigate = useNavigate();
   const { ride, setRide } = useRide();
