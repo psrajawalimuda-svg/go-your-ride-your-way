@@ -73,6 +73,7 @@ const App = () => (
                       <Route path="/admin/shuttle" element={<AdminShuttle />} />
                       <Route path="/admin/payments" element={<AdminPayments />} />
                       <Route path="/admin/promos" element={<AdminPromos />} />
+                      <Route path="/admin/settings" element={<AdminSettings />} />
                       <Route path="*" element={<NotFound />} />
                     </Routes>
                   </BrowserRouter>
