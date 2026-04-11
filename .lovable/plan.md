@@ -1,50 +1,103 @@
 
 
-## Plan: Sistem Manajemen Shuttle Komprehensif
+## Plan: Hubungkan Seluruh Hardcode ke Database
 
-Berdasarkan gambar yang diunggah, ini adalah layanan shuttle **Medan → Kualanamu Airport** dengan sistem rayon, kelas kendaraan, dan titik jemput bertingkat.
+### Ringkasan
+Menghapus semua data hardcoded/mock dari seluruh halaman dan context, menggantinya dengan data dari database Lovable Cloud. Ini mencakup halaman user-facing (Index, Shuttle, Activity, Wallet, Profile, RideBooking), driver context, dan sisa mock data di admin dashboard.
 
-### Apa yang Dibangun
+### Inventaris Hardcode yang Ditemukan
 
-**1. Database Tables Baru (4 tabel)**
+| File | Data Hardcoded |
+|------|---------------|
+| `AdminDashboard.tsx` | `tripsChartData`, `revenueChartData`, `recentActivity` dari mock file |
+| `Index.tsx` | `promoSlides`, `vehicleTypes`, `recentPlaces`, `serviceOptions` |
+| `Shuttle.tsx` | `CITIES`, `ALL_SCHEDULES` (12 jadwal hardcoded) |
+| `Activity.tsx` | `trips` array (5 trip hardcoded) |
+| `Wallet.tsx` | `mockTransactions`, hardcoded balance `180,000` |
+| `RideBooking.tsx` | `VEHICLE_CONFIG` (baseFare, perKm per kelas), `defaultSuggestions` |
+| `Profile.tsx` | Stats hardcoded ("24 rides", "8 shuttles", "4.9 rating") |
+| `AuthContext.tsx` | `MOCK_USER` — user login palsu |
+| `DriverContext.tsx` | `MOCK_REQUESTS`, earnings, `tripHistory` hardcoded |
+| `PaymentContext.tsx` | Semua transaksi in-memory, balance hardcoded |
+| `dispatch.ts` | `DRIVER_TEMPLATES`, `JAKARTA_CENTER` |
 
-- **shuttle_routes** — Rayon/rute utama (Rayon A, B, C, D) dengan kota asal, tujuan, total jarak
-- **shuttle_pickup_points** — Titik jemput per rayon dengan urutan, nama lokasi, waktu jemput (WIB), dan tarif (Mtr)
-- **shuttle_vehicle_classes** — 3 kelas kendaraan (Reguler, Semi Executive, Executive) dengan harga/km, ketentuan bagasi, dan layout kursi per tipe kendaraan (SUV, Minicar, Hiace)
-- **shuttle_departures** — Jadwal keberangkatan batch (A 06:00, B 07:00, C 08:00, dst.) dengan rayon assignment dan driver count
+### Langkah Implementasi
 
-**2. Seed Data dari Gambar**
+**Step 1: Database Migration — Tabel Baru & Modifikasi**
 
-Rayon A (17 titik jemput: Hermes Palace → KNO), Rayon B (18 titik: Cambridge → KNO), Rayon C (12 titik: Adi Mulia → Tol KNO), Rayon D (17 titik: Hotel TD Pardede → Kualanamu). Kelas kendaraan: Reguler (Rp 1.900/km), Semi Executive (Rp 2.200/km), Executive (Rp 2.500/km) dengan seating layout per tipe (SUV/Minicar/Hiace).
+Tabel baru yang diperlukan:
+- **`user_profiles`** — profil user lengkap (menggantikan MOCK_USER), linked ke auth.users
+- **`wallet_accounts`** — saldo wallet per user
+- **`wallet_transactions`** — riwayat top-up dan pembayaran wallet
+- **`saved_places`** — tempat tersimpan/recent per user
+- **`ride_fare_config`** — konfigurasi tarif per kelas kendaraan (baseFare, perKm, etaMultiplier)
 
-**3. Admin Shuttle Page Overhaul (`AdminShuttle.tsx`)**
+Tabel yang sudah ada dan akan dimanfaatkan:
+- `promos` → untuk promo carousel di Index
+- `trips` → untuk Activity page
+- `transactions` → untuk Wallet page
+- `drivers` → untuk dispatch engine
+- `shuttle_routes` + `shuttle_pickup_points` + `shuttle_departures` → untuk Shuttle page
+- `app_settings` → untuk konfigurasi zona/center city
 
-Tabs baru:
-- **Rayon & Rute** — Tabel rayon dengan expand untuk melihat/edit titik jemput, waktu, dan tarif. CRUD untuk menambah/hapus titik jemput.
-- **Kelas Kendaraan** — Tabel kelas dengan harga/km, aturan bagasi, dan visual seating layout (SUV: 1+driver/2+3 rows, Minicar: 1+2+3, Hiace: 1+2+2+5+bagasi). Edit harga dan ketentuan.
-- **Jadwal Keberangkatan** — Batch schedule per hari (A/B/C rotasi rayon) dengan assignment driver. Manage departure times.
-- **Booking** — Existing booking table (tetap)
+**Step 2: Data Hooks Baru (`src/hooks/use-app-data.ts`)**
 
-**4. Data Hooks**
+Hook baru untuk user-facing pages:
+- `useActivePromos()` — fetch promos aktif untuk carousel
+- `useShuttleSearch(from, to)` — fetch jadwal shuttle dari DB
+- `useUserTrips(userId)` — fetch riwayat trip user
+- `useUserWallet(userId)` — fetch saldo + riwayat wallet
+- `useUserProfile(userId)` — fetch profil user
+- `useSavedPlaces(userId)` — fetch tempat tersimpan
+- `useRideFareConfig()` — fetch konfigurasi tarif kendaraan
+- `useDriverPool()` — fetch driver online dari DB
 
-Tambah hooks di `use-admin-data.ts`: `useShuttleRoutes`, `useShuttlePickupPoints`, `useShuttleVehicleClasses`, `useShuttleDepartures` dengan mutation hooks untuk CRUD.
+**Step 3: Update Halaman User-Facing**
 
-**5. Update Shuttle Booking Page (User-facing)**
+- **Index.tsx**: Promo carousel → `useActivePromos()`, vehicle types → `useRideFareConfig()`
+- **Shuttle.tsx**: `CITIES` & `ALL_SCHEDULES` → `useShuttleSearch()` dari `shuttle_routes` + `shuttle_departures`
+- **Activity.tsx**: Hardcoded trips → `useUserTrips()`
+- **Wallet.tsx**: Mock transactions → `useUserWallet()`, balance dari `wallet_accounts`
+- **RideBooking.tsx**: `VEHICLE_CONFIG` → `useRideFareConfig()` dari `ride_fare_config` atau `app_settings`
+- **Profile.tsx**: Stats → computed dari `trips` + `shuttle_bookings` count
 
-Update `Shuttle.tsx` untuk menggunakan data rayon & titik jemput dari database (bukan hardcoded cities). User memilih rayon → titik jemput → kelas kendaraan → kursi → bayar.
+**Step 4: Update Context Files**
 
-### Files
+- **AuthContext.tsx**: Hubungkan ke Supabase Auth (email/phone login), profil dari `user_profiles`
+- **PaymentContext.tsx**: Transaksi persist ke `transactions` table, wallet balance dari `wallet_accounts`
+- **DriverContext.tsx**: Trip history dari `trips` table, earnings computed dari DB
+- **ShuttleContext.tsx**: Booking persist ke `shuttle_bookings` table
+
+**Step 5: Admin Dashboard — Hapus Sisa Mock**
+
+- `tripsChartData` & `revenueChartData` → computed dari `trips` dan `transactions` table (aggregasi 7 hari terakhir)
+- `recentActivity` → query gabungan dari `trips`, `transactions`, `drivers` yang terbaru
+- Hapus file `src/lib/mock-admin-data.ts` sepenuhnya
+
+### Files yang Diubah
 
 | Action | File |
 |--------|------|
-| Create | Migration: 4 tabel baru + seed data |
-| Modify | `src/hooks/use-admin-data.ts` — tambah hooks baru |
-| Rewrite | `src/pages/admin/AdminShuttle.tsx` — UI komprehensif |
-| Modify | `src/pages/Shuttle.tsx` — gunakan data dari database |
+| Create | Migration SQL (tabel baru + seed) |
+| Create | `src/hooks/use-app-data.ts` — hooks user-facing |
+| Modify | `src/pages/Index.tsx` — promo & vehicle dari DB |
+| Modify | `src/pages/Shuttle.tsx` — jadwal dari DB |
+| Modify | `src/pages/Activity.tsx` — trip history dari DB |
+| Modify | `src/pages/Wallet.tsx` — wallet & transaksi dari DB |
+| Modify | `src/pages/RideBooking.tsx` — fare config dari DB |
+| Modify | `src/pages/Profile.tsx` — stats dari DB |
+| Modify | `src/context/AuthContext.tsx` — Supabase Auth |
+| Modify | `src/context/PaymentContext.tsx` — persist transaksi |
+| Modify | `src/context/DriverContext.tsx` — trip history dari DB |
+| Modify | `src/context/ShuttleContext.tsx` — persist booking |
+| Modify | `src/pages/admin/AdminDashboard.tsx` — chart data dari DB |
+| Delete | `src/lib/mock-admin-data.ts` |
 
-### Technical Notes
-- Seating layout disimpan sebagai JSON array di `shuttle_vehicle_classes` (rows × cols per vehicle type)
-- Tarif di pickup_points dalam satuan meter (sesuai gambar "FAR (Mtr)"), akan dikonversi ke rupiah berdasarkan harga/km kelas kendaraan
-- RLS permissive (admin-guarded via sessionStorage)
-- Existing `shuttle_schedules` dan `shuttle_bookings` tables tetap dipertahankan untuk backward compatibility
+### Catatan Teknis
+- Auth menggunakan Supabase Auth dengan email signup + auto-confirm disabled
+- Google Auth ditambahkan sebagai opsi login
+- RLS policies pada tabel user-facing akan membatasi akses per user (`auth.uid()`)
+- Dispatch engine tetap menggunakan simulated drivers sebagai fallback saat tidak ada driver real online
+- Wallet balance dihitung dari `wallet_accounts` table, bukan hardcoded
+- Chart data di dashboard dihitung secara real-time dari aggregasi query
 
