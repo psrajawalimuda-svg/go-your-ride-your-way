@@ -4,8 +4,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { mockDrivers } from "@/lib/mock-admin-data";
+import { useAdminDrivers, useUpdateDriverApproval } from "@/hooks/use-admin-data";
 import { Search, Star } from "lucide-react";
 
 const statusColor: Record<string, string> = {
@@ -16,8 +17,11 @@ const statusColor: Record<string, string> = {
 
 export default function AdminDrivers() {
   const [search, setSearch] = useState("");
-  const filtered = mockDrivers.filter((d) =>
-    d.name.toLowerCase().includes(search.toLowerCase()) || d.vehiclePlate.toLowerCase().includes(search.toLowerCase())
+  const { data: drivers, isLoading } = useAdminDrivers();
+  const updateApproval = useUpdateDriverApproval();
+
+  const filtered = (drivers ?? []).filter((d) =>
+    d.name.toLowerCase().includes(search.toLowerCase()) || d.vehicle_plate.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
@@ -25,7 +29,7 @@ export default function AdminDrivers() {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-2xl font-bold text-foreground">Driver Management</h2>
-          <Badge variant="secondary">{mockDrivers.length} drivers</Badge>
+          <Badge variant="secondary">{drivers?.length ?? 0} drivers</Badge>
         </div>
 
         <div className="relative">
@@ -35,51 +39,61 @@ export default function AdminDrivers() {
 
         <Card>
           <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nama</TableHead>
-                  <TableHead>Kendaraan</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="hidden md:table-cell">Rating</TableHead>
-                  <TableHead className="hidden md:table-cell">Trips</TableHead>
-                  <TableHead>Aksi</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered.map((d) => (
-                  <TableRow key={d.id}>
-                    <TableCell>
-                      <div>
-                        <p className="font-medium">{d.name}</p>
-                        <p className="text-xs text-muted-foreground">{d.vehiclePlate}</p>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div>
-                        <p className="text-sm">{d.vehicleModel}</p>
-                        <Badge variant="outline" className="text-[10px]">{d.vehicleClass}</Badge>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className={`text-xs ${statusColor[d.status]}`}>{d.status}</Badge>
-                    </TableCell>
-                    <TableCell className="hidden md:table-cell">
-                      <span className="flex items-center gap-1 text-sm">
-                        <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
-                        {d.rating}
-                      </span>
-                    </TableCell>
-                    <TableCell className="hidden md:table-cell">{d.totalTrips}</TableCell>
-                    <TableCell>
-                      <Button variant="ghost" size="sm" className="text-xs">
-                        {d.approved ? "Suspend" : "Approve"}
-                      </Button>
-                    </TableCell>
+            {isLoading ? (
+              <div className="p-4 space-y-3">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}</div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nama</TableHead>
+                    <TableHead>Kendaraan</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="hidden md:table-cell">Rating</TableHead>
+                    <TableHead className="hidden md:table-cell">Trips</TableHead>
+                    <TableHead>Aksi</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {filtered.map((d) => (
+                    <TableRow key={d.id}>
+                      <TableCell>
+                        <div>
+                          <p className="font-medium">{d.name}</p>
+                          <p className="text-xs text-muted-foreground">{d.vehicle_plate}</p>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div>
+                          <p className="text-sm">{d.vehicle_model}</p>
+                          <Badge variant="outline" className="text-[10px]">{d.vehicle_class}</Badge>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={`text-xs ${statusColor[d.status]}`}>{d.status}</Badge>
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell">
+                        <span className="flex items-center gap-1 text-sm">
+                          <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+                          {d.rating}
+                        </span>
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell">{d.total_trips}</TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-xs"
+                          disabled={updateApproval.isPending}
+                          onClick={() => updateApproval.mutate({ id: d.id, approved: !d.approved })}
+                        >
+                          {d.approved ? "Suspend" : "Approve"}
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
           </CardContent>
         </Card>
       </div>
