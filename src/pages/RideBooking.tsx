@@ -109,6 +109,23 @@ export default function RideBooking() {
 
   const canProceedToFare = pickupPos && destPos;
 
+  // Dynamic distance & pricing
+  const distanceKm = useMemo(() => {
+    if (!pickupPos || !destPos) return 0;
+    return haversineDistance(pickupPos, destPos);
+  }, [pickupPos, destPos]);
+
+  const estimatedMinutes = useMemo(() => Math.max(1, Math.ceil(distanceKm * 3)), [distanceKm]);
+
+  const vehicles = useMemo(() =>
+    VEHICLE_CONFIG.map((v) => ({
+      ...v,
+      price: formatRupiah(calcFare(v.baseFare, v.perKm, distanceKm)),
+      fareNum: calcFare(v.baseFare, v.perKm, distanceKm),
+    })),
+    [distanceKm]
+  );
+
   const handleConfirmLocation = () => {
     if (canProceedToFare) setStep("fare");
   };
@@ -116,18 +133,17 @@ export default function RideBooking() {
   const handleSelectVehicle = () => setStep("confirm");
 
   const handleBook = () => {
-    const fare = vehicles.find((v) => v.id === selectedVehicle)?.price || "Rp 25,000";
-    const fareNum = parseInt(fare.replace(/\D/g, ""));
+    const v = vehicles.find((v) => v.id === selectedVehicle)!;
     setRide({
       pickup: { name: pickupName, latlng: pickupPos },
       destination: { name: destName, latlng: destPos },
       vehicle: selectedVehicle,
       payment,
-      fare,
+      fare: v.price,
       status: "searching",
     });
     createTransaction({
-      amount: fareNum,
+      amount: v.fareNum,
       description: `Ride: ${pickupName} → ${destName}`,
       returnPath: "/ride/tracking",
     });
@@ -263,8 +279,8 @@ export default function RideBooking() {
                   </div>
                 </div>
                 <div className="mt-3 flex items-center gap-4 text-xs text-muted-foreground">
-                  <span className="flex items-center gap-1"><Navigation className="h-3 w-3" /> ~5.2 km</span>
-                  <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> ~15 min</span>
+                  <span className="flex items-center gap-1"><Navigation className="h-3 w-3" /> ~{distanceKm.toFixed(1)} km</span>
+                  <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> ~{estimatedMinutes} min</span>
                 </div>
               </Card>
 
