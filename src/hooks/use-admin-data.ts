@@ -54,6 +54,97 @@ export const useAdminShuttleBookings = () =>
     },
   });
 
+// ─── Shuttle Management Hooks ───────────────────────────────────────────────
+
+export const useShuttleRoutes = () =>
+  useQuery({
+    queryKey: ["admin", "shuttle_routes"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("shuttle_routes")
+        .select("*")
+        .order("code");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+export const useShuttlePickupPoints = (routeId?: string) =>
+  useQuery({
+    queryKey: ["admin", "shuttle_pickup_points", routeId],
+    queryFn: async () => {
+      let q = supabase.from("shuttle_pickup_points").select("*").order("sequence");
+      if (routeId) q = q.eq("route_id", routeId);
+      const { data, error } = await q;
+      if (error) throw error;
+      return data;
+    },
+    enabled: routeId !== undefined,
+  });
+
+export const useAllShuttlePickupPoints = () =>
+  useQuery({
+    queryKey: ["admin", "shuttle_pickup_points", "all"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("shuttle_pickup_points").select("*").order("sequence");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+export const useShuttleVehicleClasses = () =>
+  useQuery({
+    queryKey: ["admin", "shuttle_vehicle_classes"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("shuttle_vehicle_classes").select("*").order("sort_order");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+export const useShuttleDepartures = () =>
+  useQuery({
+    queryKey: ["admin", "shuttle_departures"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("shuttle_departures").select("*").order("departure_time");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+export const useUpsertPickupPoint = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (point: { id?: string; route_id: string; sequence: number; name: string; pickup_time: string; distance_m: number }) => {
+      const { error } = await supabase.from("shuttle_pickup_points").upsert(point as any);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "shuttle_pickup_points"] }),
+  });
+};
+
+export const useDeletePickupPoint = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("shuttle_pickup_points").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "shuttle_pickup_points"] }),
+  });
+};
+
+export const useUpdateVehicleClass = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...updates }: { id: string; price_per_km?: number; baggage_rules?: any }) => {
+      const { error } = await supabase.from("shuttle_vehicle_classes").update(updates).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "shuttle_vehicle_classes"] }),
+  });
+};
+
 export const useAdminTransactions = () =>
   useQuery({
     queryKey: ["admin", "transactions"],
