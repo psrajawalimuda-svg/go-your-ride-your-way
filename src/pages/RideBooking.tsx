@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { ArrowLeft, MapPin, Navigation, Clock, Car, Bike, Truck, CreditCard, Wallet, Crosshair, Loader2, Search } from "lucide-react";
 import { useGeocoding, type GeocodingResult } from "@/hooks/use-geocoding";
+import { haversineDistance } from "@/lib/dispatch";
 import { MobileLayout } from "@/components/layout/MobileLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,12 +15,20 @@ import { usePayment } from "@/context/PaymentContext";
 import { useNearbyDrivers } from "@/hooks/use-realtime";
 import { dispatch } from "@/lib/dispatch";
 
-const vehicles = [
-  { id: "bike" as const, icon: Bike, label: "PYU Bike", eta: "3 min", price: "Rp 8,000", desc: "Affordable motorcycle ride" },
-  { id: "car" as const, icon: Car, label: "PYU Car", eta: "5 min", price: "Rp 25,000", desc: "Comfortable car ride" },
-  { id: "premium" as const, icon: Car, label: "PYU Premium", eta: "7 min", price: "Rp 45,000", desc: "Luxury experience" },
-  { id: "womenbike" as const, icon: Bike, label: "PYU Women Bike", eta: "5 min", price: "Rp 15,000", desc: "Safe ride by female drivers" },
+const VEHICLE_CONFIG = [
+  { id: "bike" as const, icon: Bike, label: "PYU Bike", eta: "3 min", baseFare: 2000, perKm: 1500, desc: "Affordable motorcycle ride" },
+  { id: "car" as const, icon: Car, label: "PYU Car", eta: "5 min", baseFare: 5000, perKm: 4000, desc: "Comfortable car ride" },
+  { id: "premium" as const, icon: Car, label: "PYU Premium", eta: "7 min", baseFare: 10000, perKm: 7000, desc: "Luxury experience" },
+  { id: "womenbike" as const, icon: Bike, label: "PYU Women Bike", eta: "5 min", baseFare: 3000, perKm: 2000, desc: "Safe ride by female drivers" },
 ];
+
+function formatRupiah(n: number) {
+  return `Rp ${n.toLocaleString("id-ID")}`;
+}
+
+function calcFare(baseFare: number, perKm: number, distKm: number) {
+  return Math.round((baseFare + distKm * perKm) / 1000) * 1000;
+}
 
 const defaultSuggestions: GeocodingResult[] = [
   { name: "Grand Indonesia Mall", addr: "Jl. MH Thamrin No. 1", latlng: [-6.1950, 106.8220] },
