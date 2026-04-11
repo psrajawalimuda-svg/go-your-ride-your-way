@@ -1,17 +1,11 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Users, Car, MapPin, DollarSign, Clock } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts";
-import { dashboardKPIs, tripsChartData, revenueChartData, recentActivity } from "@/lib/mock-admin-data";
 import { AdminLayout } from "@/components/admin/AdminLayout";
-
-const kpiCards = [
-  { label: "Total Users", value: dashboardKPIs.totalUsers, icon: Users, color: "text-blue-500" },
-  { label: "Active Drivers", value: dashboardKPIs.activeDrivers, icon: Car, color: "text-emerald-500" },
-  { label: "Today's Trips", value: dashboardKPIs.todaysTrips, icon: MapPin, color: "text-amber-500" },
-  { label: "Revenue", value: `Rp ${(dashboardKPIs.totalRevenue / 1000).toFixed(0)}k`, icon: DollarSign, color: "text-primary" },
-  { label: "Pending Payments", value: dashboardKPIs.pendingPayments, icon: Clock, color: "text-orange-500" },
-];
+import { useAdminUsers, useAdminDrivers, useAdminTrips, useAdminTransactions } from "@/hooks/use-admin-data";
+import { tripsChartData, revenueChartData, recentActivity } from "@/lib/mock-admin-data";
 
 const activityTypeColor: Record<string, string> = {
   trip: "bg-emerald-500/10 text-emerald-600",
@@ -22,12 +16,27 @@ const activityTypeColor: Record<string, string> = {
 };
 
 export default function AdminDashboard() {
+  const { data: users, isLoading: loadingUsers } = useAdminUsers();
+  const { data: drivers, isLoading: loadingDrivers } = useAdminDrivers();
+  const { data: trips, isLoading: loadingTrips } = useAdminTrips();
+  const { data: transactions, isLoading: loadingTxn } = useAdminTransactions();
+
+  const isLoading = loadingUsers || loadingDrivers || loadingTrips || loadingTxn;
+
+  const today = new Date().toISOString().slice(0, 10);
+  const kpiCards = [
+    { label: "Total Users", value: users?.length ?? 0, icon: Users, color: "text-blue-500" },
+    { label: "Active Drivers", value: drivers?.filter(d => d.status !== "offline").length ?? 0, icon: Car, color: "text-emerald-500" },
+    { label: "Today's Trips", value: trips?.filter(t => t.created_at.startsWith(today)).length ?? 0, icon: MapPin, color: "text-amber-500" },
+    { label: "Revenue", value: `Rp ${((transactions?.filter(t => t.status === "success").reduce((s, t) => s + t.amount, 0) ?? 0) / 1000).toFixed(0)}k`, icon: DollarSign, color: "text-primary" },
+    { label: "Pending Payments", value: transactions?.filter(t => t.status === "pending" || t.status === "processing").length ?? 0, icon: Clock, color: "text-orange-500" },
+  ];
+
   return (
     <AdminLayout>
       <div className="space-y-6">
         <h2 className="text-2xl font-bold text-foreground">Dashboard</h2>
 
-        {/* KPI Cards */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
           {kpiCards.map((kpi) => (
             <Card key={kpi.label}>
@@ -36,18 +45,15 @@ export default function AdminDashboard() {
                   <kpi.icon className={`h-4 w-4 ${kpi.color}`} />
                   <span className="text-xs text-muted-foreground">{kpi.label}</span>
                 </div>
-                <p className="text-2xl font-bold text-foreground">{kpi.value}</p>
+                {isLoading ? <Skeleton className="h-8 w-16" /> : <p className="text-2xl font-bold text-foreground">{kpi.value}</p>}
               </CardContent>
             </Card>
           ))}
         </div>
 
-        {/* Charts */}
         <div className="grid md:grid-cols-2 gap-4">
           <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Trips (7 Days)</CardTitle>
-            </CardHeader>
+            <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Trips (7 Days)</CardTitle></CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={200}>
                 <BarChart data={tripsChartData}>
@@ -59,11 +65,8 @@ export default function AdminDashboard() {
               </ResponsiveContainer>
             </CardContent>
           </Card>
-
           <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Revenue (7 Days)</CardTitle>
-            </CardHeader>
+            <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Revenue (7 Days)</CardTitle></CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={200}>
                 <LineChart data={revenueChartData}>
@@ -77,17 +80,12 @@ export default function AdminDashboard() {
           </Card>
         </div>
 
-        {/* Recent Activity */}
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Aktivitas Terbaru</CardTitle>
-          </CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Aktivitas Terbaru</CardTitle></CardHeader>
           <CardContent className="space-y-3">
             {recentActivity.map((a) => (
               <div key={a.id} className="flex items-start gap-3">
-                <Badge variant="secondary" className={`text-[10px] shrink-0 ${activityTypeColor[a.type]}`}>
-                  {a.type}
-                </Badge>
+                <Badge variant="secondary" className={`text-[10px] shrink-0 ${activityTypeColor[a.type]}`}>{a.type}</Badge>
                 <div className="min-w-0">
                   <p className="text-sm text-foreground truncate">{a.text}</p>
                   <p className="text-xs text-muted-foreground">{a.time}</p>
