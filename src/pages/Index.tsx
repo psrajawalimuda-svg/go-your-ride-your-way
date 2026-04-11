@@ -41,6 +41,14 @@ export default function Index() {
   const navigate = useNavigate();
   const { ride, setRide } = useRide();
   const [showRideNowServices, setShowRideNowServices] = useState(false);
+  const [carouselApi, setCarouselApi] = useState<CarouselApi>();
+  const [currentSlide, setCurrentSlide] = useState(0);
+
+  useEffect(() => {
+    if (!carouselApi) return;
+    setCurrentSlide(carouselApi.selectedScrollSnap());
+    carouselApi.on("select", () => setCurrentSlide(carouselApi.selectedScrollSnap()));
+  }, [carouselApi]);
 
   const handleSelectService = (service: string) => {
     setRide({ ...ride, vehicle: service as any });
