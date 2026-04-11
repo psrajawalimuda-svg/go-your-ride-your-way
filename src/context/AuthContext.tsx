@@ -25,7 +25,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .from("app_users")
         .select("*")
         .eq("id", userId)
-        .single();
+        .maybeSingle();
 
       if (error) {
         console.error("Error fetching user profile:", error);
@@ -48,12 +48,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return null;
   };
 
+  const ensureProfile = async (session: any) => {
+    if (!session?.user) return null;
+    
+    let profile = await fetchUserProfile(session.user.id);
+    
+    if (!profile) {
+      console.log("Profile missing, creating default profile for:", session.user.id);
+      const { error: insertError } = await supabase.from("app_users").insert({
+        id: session.user.id,
+        name: session.user.user_metadata.name || session.user.email?.split("@")[0] || "User",
+        email: session.user.email || "",
+        phone: session.user.user_metadata.phone || "",
+        role: "passenger",
+        status: "active",
+        total_trips: 0
+      });
+      
+      if (!insertError) {
+        profile = await fetchUserProfile(session.user.id);
+      } else {
+        console.error("Failed to create missing profile:", insertError);
+      }
+    }
+    
+    return profile;
+  };
+
   useEffect(() => {
     // Check active sessions and sets the user
     const initAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
-        const profile = await fetchUserProfile(session.user.id);
+        const profile = await ensureProfile(session);
         setUser(profile);
       }
       setIsLoading(false);
@@ -64,25 +91,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Listen for changes on auth state (sign in, sign out, etc.)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session?.user) {
-        let profile = await fetchUserProfile(session.user.id);
-        
-        // If profile doesn't exist (e.g. first time Google login), create it
-        if (!profile && event === "SIGNED_IN") {
-          const { error: insertError } = await supabase.from("app_users").insert({
-            id: session.user.id,
-            name: session.user.user_metadata.name || session.user.email?.split("@")[0] || "User",
-            email: session.user.email || "",
-            phone: session.user.user_metadata.phone || "",
-            role: "passenger",
-            status: "active",
-            total_trips: 0
-          });
-          
-          if (!insertError) {
-            profile = await fetchUserProfile(session.user.id);
-          }
-        }
-        
+        const profile = await ensureProfile(session);
         setUser(profile);
       } else {
         setUser(null);

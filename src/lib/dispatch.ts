@@ -236,17 +236,13 @@ class DispatchEngine {
     });
   }
 
-  /** Release a driver (trip ended) */
-  releaseDriver(driverId: string) {
-    const d = this.drivers.find((dr) => dr.id === driverId);
-    if (d) d.busy = false;
-  }
-
   destroy() {
     this.driftTimers.forEach(clearInterval);
     this.driftTimers = [];
     this.drivers = [];
     this._initialized = false;
+  }
+
   /** Release a driver after a trip or cancellation */
   releaseDriver(id: string) {
     const d = this.drivers.find((dr) => dr.id === id);
