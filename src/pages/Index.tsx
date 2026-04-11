@@ -120,6 +120,42 @@ export default function Index() {
             </Card>
           </div>
 
+          {/* Promo Carousel */}
+          <div>
+            <h3 className="text-sm font-bold mb-2">Promo & Offers</h3>
+            <Carousel
+              setApi={setCarouselApi}
+              opts={{ loop: true }}
+              plugins={[Autoplay({ delay: 4000, stopOnInteraction: false })]}
+              className="w-full"
+            >
+              <CarouselContent className="-ml-2">
+                {promoSlides.map((slide, i) => (
+                  <CarouselItem key={i} className="pl-2">
+                    <div className={`bg-gradient-to-r ${slide.bg} rounded-2xl p-4 text-white flex items-center gap-3 min-h-[88px]`}>
+                      <div className="p-2.5 bg-white/20 rounded-xl backdrop-blur-sm">
+                        <slide.icon className="h-6 w-6" />
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="font-extrabold text-sm">{slide.title}</h4>
+                        <p className="text-xs text-white/80 mt-0.5">{slide.subtitle}</p>
+                      </div>
+                      <ChevronRight className="h-4 w-4 text-white/60" />
+                    </div>
+                  </CarouselItem>
+                ))}
+              </CarouselContent>
+            </Carousel>
+            <div className="flex justify-center gap-1.5 mt-2">
+              {promoSlides.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => carouselApi?.scrollTo(i)}
+                  className={`h-1.5 rounded-full transition-all ${i === currentSlide ? "w-4 bg-primary" : "w-1.5 bg-border"}`}
+                />
+              ))}
+            </div>
+          </div>
           {/* Recent places */}
           <div>
             <h3 className="text-sm font-bold mb-2">Recent Places</h3>
