@@ -25,7 +25,12 @@ export default function AdminSettings() {
   const getValue = (key: string) => {
     if (key in edited) return edited[key];
     const s = settings?.find((s) => s.key === key);
-    return s ? JSON.parse(s.value as string) : "";
+    if (!s) return "";
+    const v = s.value;
+    if (typeof v === "string") {
+      try { return JSON.parse(v); } catch { return v; }
+    }
+    return String(v ?? "");
   };
 
   const handleChange = (key: string, val: string) => {
