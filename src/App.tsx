@@ -64,6 +64,14 @@ const App = () => (
                       <Route path="/driver/home" element={<DriverHome />} />
                       <Route path="/driver/trip" element={<DriverTrip />} />
                       <Route path="/driver/earnings" element={<DriverEarnings />} />
+                      <Route path="/admin/login" element={<AdminLogin />} />
+                      <Route path="/admin" element={<AdminDashboard />} />
+                      <Route path="/admin/users" element={<AdminUsers />} />
+                      <Route path="/admin/drivers" element={<AdminDrivers />} />
+                      <Route path="/admin/trips" element={<AdminTrips />} />
+                      <Route path="/admin/shuttle" element={<AdminShuttle />} />
+                      <Route path="/admin/payments" element={<AdminPayments />} />
+                      <Route path="/admin/promos" element={<AdminPromos />} />
                       <Route path="*" element={<NotFound />} />
                     </Routes>
                   </BrowserRouter>
