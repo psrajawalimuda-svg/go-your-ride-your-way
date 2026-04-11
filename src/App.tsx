@@ -11,6 +11,7 @@ import { ShuttleProvider } from "@/context/ShuttleContext";
 import { DriverProvider } from "./context/DriverContext";
 import Splash from "./pages/Splash";
 import Onboarding from "./pages/Onboarding";
+import Login from "./pages/Login";
 import Index from "./pages/Index";
 import Shuttle from "./pages/Shuttle";
 import Activity from "./pages/Activity";
@@ -52,6 +53,7 @@ const App = () => (
                     <Routes>
                       <Route path="/" element={<Splash />} />
                       <Route path="/onboarding" element={<Onboarding />} />
+                      <Route path="/login" element={<Login />} />
                       <Route path="/home" element={<Index />} />
                       <Route path="/shuttle" element={<Shuttle />} />
                       <Route path="/activity" element={<Activity />} />

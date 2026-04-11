@@ -42,14 +42,18 @@ export default function RideBooking() {
     ];
     try {
       const parsed = Array.isArray(defaultSuggestionsRaw) ? defaultSuggestionsRaw : JSON.parse(String(defaultSuggestionsRaw));
-      return parsed.map((s: any) => ({ name: s.name, addr: s.addr, latlng: [s.lat, s.lng] as [number, number] }));
+      return parsed.map((s: any) => ({ 
+        name: s.name, 
+        addr: s.addr || s.address || "", 
+        latlng: [s.lat, s.lng] as [number, number] 
+      }));
     } catch {
       return [];
     }
   }, [defaultSuggestionsRaw]);
 
   const VEHICLE_CONFIG = useMemo(() => {
-    if (!fareConfig) return [
+    if (!fareConfig || fareConfig.length === 0) return [
       { id: "bike" as const, icon: Bike, label: "PYU Bike", etaMultiplier: 3, baseFare: 2000, perKm: 1500, desc: "Affordable motorcycle ride" },
       { id: "car" as const, icon: Car, label: "PYU Car", etaMultiplier: 4, baseFare: 5000, perKm: 4000, desc: "Comfortable car ride" },
       { id: "premium" as const, icon: Car, label: "PYU Premium", etaMultiplier: 5, baseFare: 10000, perKm: 7000, desc: "Luxury experience" },

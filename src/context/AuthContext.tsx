@@ -1,60 +1,171 @@
-import { createContext, useContext, useState, useCallback, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import type { User } from "@/types/models";
-import api from "@/lib/api";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (phone: string, otp: string) => Promise<void>;
-  logout: () => void;
-  token: string | null;
+  signInWithEmail: (email: string, password: string) => Promise<void>;
+  signUpWithEmail: (email: string, password: string, name: string, phone: string) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
+  signOut: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-// Mock user for demo
-const MOCK_USER: User = {
-  id: "USR-001",
-  name: "Rizky Pratama",
-  email: "rizky@email.com",
-  phone: "081234567890",
-  avatar: undefined,
-  role: "passenger",
-  createdAt: new Date().toISOString(),
-};
-
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(() => {
-    const token = api.getToken();
-    // Restore session if token exists
-    return token ? MOCK_USER : null;
-  });
-  const [isLoading, setIsLoading] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const isAuthenticated = !!user;
-  const token = api.getToken();
+  const fetchUserProfile = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("app_users")
+        .select("*")
+        .eq("id", userId)
+        .single();
 
-  const login = useCallback(async (phone: string, _otp: string) => {
+      if (error) {
+        console.error("Error fetching user profile:", error);
+        return null;
+      }
+
+      if (data) {
+        return {
+          id: data.id,
+          name: data.name,
+          email: data.email,
+          phone: data.phone,
+          role: data.role as any,
+          createdAt: data.created_at,
+        } as User;
+      }
+    } catch (err) {
+      console.error("Unexpected error fetching profile:", err);
+    }
+    return null;
+  };
+
+  useEffect(() => {
+    // Check active sessions and sets the user
+    const initAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        const profile = await fetchUserProfile(session.user.id);
+        setUser(profile);
+      }
+      setIsLoading(false);
+    };
+
+    initAuth();
+
+    // Listen for changes on auth state (sign in, sign out, etc.)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session?.user) {
+        let profile = await fetchUserProfile(session.user.id);
+        
+        // If profile doesn't exist (e.g. first time Google login), create it
+        if (!profile && event === "SIGNED_IN") {
+          const { error: insertError } = await supabase.from("app_users").insert({
+            id: session.user.id,
+            name: session.user.user_metadata.name || session.user.email?.split("@")[0] || "User",
+            email: session.user.email || "",
+            phone: session.user.user_metadata.phone || "",
+            role: "passenger",
+            status: "active",
+            total_trips: 0
+          });
+          
+          if (!insertError) {
+            profile = await fetchUserProfile(session.user.id);
+          }
+        }
+        
+        setUser(profile);
+      } else {
+        setUser(null);
+      }
+      setIsLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const signInWithEmail = async (email: string, password: string) => {
     setIsLoading(true);
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      const mockToken = `mock_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-      api.setToken(mockToken);
-      setUser({ ...MOCK_USER, phone });
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      toast.success("Signed in successfully");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to sign in");
+      throw error;
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  };
 
-  const logout = useCallback(() => {
-    api.clearToken();
-    setUser(null);
-  }, []);
+  const signUpWithEmail = async (email: string, password: string, name: string, phone: string) => {
+    setIsLoading(true);
+    try {
+      const { error } = await supabase.auth.signUp({ 
+        email, 
+        password,
+        options: {
+          data: { name, phone }
+        }
+      });
+      
+      if (error) throw error;
+      toast.success("Account created successfully. Please check your email for verification.");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to sign up");
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const signInWithGoogle = async () => {
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: window.location.origin + "/home"
+        }
+      });
+      if (error) throw error;
+    } catch (error: any) {
+      toast.error(error.message || "Failed to sign in with Google");
+      throw error;
+    }
+  };
+
+  const signOut = async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      setUser(null);
+      toast.success("Signed out successfully");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to sign out");
+    }
+  };
+
+  const isAuthenticated = !!user;
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated, isLoading, login, logout, token }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      isAuthenticated, 
+      isLoading, 
+      signInWithEmail, 
+      signUpWithEmail,
+      signInWithGoogle, 
+      signOut 
+    }}>
       {children}
     </AuthContext.Provider>
   );

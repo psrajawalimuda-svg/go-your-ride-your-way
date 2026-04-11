@@ -1,6 +1,4 @@
-// ─── API Service Layer ──────────────────────────────────────────────────────
-// Centralized REST client with token management, error handling, and logging.
-// Currently uses mock responses; swap BASE_URL to a real backend when ready.
+import { supabase } from "@/integrations/supabase/client";
 
 export class ApiError extends Error {
   constructor(
@@ -19,8 +17,6 @@ interface RequestOptions extends Omit<RequestInit, "body"> {
   params?: Record<string, string>;
 }
 
-const TOKEN_KEY = "pyugo_auth_token";
-
 class ApiClient {
   private baseUrl: string;
 
@@ -30,16 +26,9 @@ class ApiClient {
 
   // ── Token management ────────────────────────────────────────────────────
 
-  getToken(): string | null {
-    return localStorage.getItem(TOKEN_KEY);
-  }
-
-  setToken(token: string): void {
-    localStorage.setItem(TOKEN_KEY, token);
-  }
-
-  clearToken(): void {
-    localStorage.removeItem(TOKEN_KEY);
+  async getToken(): Promise<string | null> {
+    const { data: { session } } = await supabase.auth.getSession();
+    return session?.access_token || null;
   }
 
   // ── Core request ────────────────────────────────────────────────────────
@@ -60,7 +49,7 @@ class ApiClient {
       ...((extraHeaders as Record<string, string>) || {}),
     };
 
-    const token = this.getToken();
+    const token = await this.getToken();
     if (token) {
       headers["Authorization"] = `Bearer ${token}`;
     }
@@ -119,8 +108,7 @@ class ApiClient {
 
     // Auto-logout on 401
     if (error.status === 401) {
-      this.clearToken();
-      // Could dispatch an event or redirect here
+      supabase.auth.signOut();
     }
   }
 

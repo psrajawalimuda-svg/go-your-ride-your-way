@@ -1,4 +1,4 @@
-import { User, Bell, CreditCard, Shield, HelpCircle, LogOut, ChevronRight, Star, Sun, Moon } from "lucide-react";
+import { User, Bell, CreditCard, Shield, HelpCircle, LogOut, ChevronRight, Star, Sun, Moon, Car } from "lucide-react";
 import { MobileLayout } from "@/components/layout/MobileLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,6 +6,8 @@ import { motion } from "framer-motion";
 import { useTheme } from "@/hooks/use-theme";
 import { useProfileStats } from "@/hooks/use-app-data";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useAuth } from "@/context/AuthContext";
+import { useNavigate } from "react-router-dom";
 
 const menuItems = [
   { icon: CreditCard, label: "Payment Methods", desc: "Manage cards & wallets" },
@@ -18,6 +20,8 @@ const menuItems = [
 export default function Profile() {
   const { theme, toggleTheme } = useTheme();
   const { data: stats, isLoading } = useProfileStats();
+  const { user, isAuthenticated, signOut } = useAuth();
+  const navigate = useNavigate();
 
   const statItems = [
     { label: "Rides", value: stats?.rides ?? 0 },
@@ -25,23 +29,39 @@ export default function Profile() {
     { label: "Rating", value: "4.9" },
   ];
 
+  const handleSignOut = async () => {
+    await signOut();
+    navigate("/home");
+  };
+
   return (
     <MobileLayout>
-      <div className="px-4 pt-6 space-y-5">
+      <div className="px-4 pt-6 space-y-5 pb-24">
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
           <Card className="p-5 rounded-2xl">
             <div className="flex items-center gap-4">
-              <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center">
-                <User className="h-8 w-8 text-primary" />
+              <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center overflow-hidden">
+                {user?.avatar ? (
+                  <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
+                ) : (
+                  <User className="h-8 w-8 text-primary" />
+                )}
               </div>
               <div className="flex-1">
-                <h2 className="text-lg font-extrabold">Guest User</h2>
-                <p className="text-sm text-muted-foreground">Sign in for full features</p>
+                <h2 className="text-lg font-extrabold">{isAuthenticated ? user?.name : "Guest User"}</h2>
+                <p className="text-sm text-muted-foreground">
+                  {isAuthenticated ? user?.email : "Sign in for full features"}
+                </p>
               </div>
             </div>
-            <Button className="w-full mt-4 h-11 rounded-xl font-bold">
-              Sign In / Register
-            </Button>
+            {!isAuthenticated && (
+              <Button 
+                onClick={() => navigate("/login")}
+                className="w-full mt-4 h-11 rounded-xl font-bold"
+              >
+                Sign In / Register
+              </Button>
+            )}
           </Card>
         </motion.div>
 
@@ -57,6 +77,20 @@ export default function Profile() {
             </Card>
           ))}
         </div>
+
+        <button
+          onClick={() => navigate("/driver/login")}
+          className="w-full flex items-center gap-3 p-3.5 rounded-xl bg-primary/5 border border-primary/10 hover:bg-primary/10 transition-colors"
+        >
+          <div className="p-2 rounded-lg bg-primary/10">
+            <Car className="h-4 w-4 text-primary" />
+          </div>
+          <div className="flex-1 text-left">
+            <p className="text-sm font-bold text-primary">Daftar sebagai Driver</p>
+            <p className="text-xs text-primary/70">Mulai hasilkan uang sekarang</p>
+          </div>
+          <ChevronRight className="h-4 w-4 text-primary" />
+        </button>
 
         <button
           onClick={toggleTheme}
@@ -97,10 +131,15 @@ export default function Profile() {
           ))}
         </div>
 
-        <button className="w-full flex items-center justify-center gap-2 p-3 text-destructive font-semibold text-sm rounded-xl hover:bg-destructive/5 transition-colors">
-          <LogOut className="h-4 w-4" />
-          Sign Out
-        </button>
+        {isAuthenticated && (
+          <button 
+            onClick={handleSignOut}
+            className="w-full flex items-center justify-center gap-2 p-3 text-destructive font-semibold text-sm rounded-xl hover:bg-destructive/5 transition-colors"
+          >
+            <LogOut className="h-4 w-4" />
+            Sign Out
+          </button>
+        )}
       </div>
     </MobileLayout>
   );
