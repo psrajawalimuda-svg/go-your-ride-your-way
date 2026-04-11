@@ -14,7 +14,258 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      app_users: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          name: string
+          phone: string
+          role: string
+          status: string
+          total_trips: number
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id: string
+          name: string
+          phone: string
+          role?: string
+          status?: string
+          total_trips?: number
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          name?: string
+          phone?: string
+          role?: string
+          status?: string
+          total_trips?: number
+        }
+        Relationships: []
+      }
+      drivers: {
+        Row: {
+          approved: boolean
+          email: string
+          id: string
+          joined_at: string
+          name: string
+          phone: string
+          rating: number
+          status: string
+          total_trips: number
+          vehicle_class: string
+          vehicle_model: string
+          vehicle_plate: string
+        }
+        Insert: {
+          approved?: boolean
+          email: string
+          id: string
+          joined_at?: string
+          name: string
+          phone: string
+          rating?: number
+          status?: string
+          total_trips?: number
+          vehicle_class: string
+          vehicle_model: string
+          vehicle_plate: string
+        }
+        Update: {
+          approved?: boolean
+          email?: string
+          id?: string
+          joined_at?: string
+          name?: string
+          phone?: string
+          rating?: number
+          status?: string
+          total_trips?: number
+          vehicle_class?: string
+          vehicle_model?: string
+          vehicle_plate?: string
+        }
+        Relationships: []
+      }
+      promos: {
+        Row: {
+          active: boolean
+          badge: string | null
+          end_date: string
+          gradient: string
+          id: string
+          start_date: string
+          subtitle: string
+          title: string
+        }
+        Insert: {
+          active?: boolean
+          badge?: string | null
+          end_date: string
+          gradient?: string
+          id?: string
+          start_date: string
+          subtitle: string
+          title: string
+        }
+        Update: {
+          active?: boolean
+          badge?: string | null
+          end_date?: string
+          gradient?: string
+          id?: string
+          start_date?: string
+          subtitle?: string
+          title?: string
+        }
+        Relationships: []
+      }
+      shuttle_bookings: {
+        Row: {
+          created_at: string
+          departure: string
+          id: string
+          passenger_name: string
+          route: string
+          seats: number
+          status: string
+          total_price: number
+        }
+        Insert: {
+          created_at?: string
+          departure: string
+          id: string
+          passenger_name: string
+          route: string
+          seats?: number
+          status?: string
+          total_price: number
+        }
+        Update: {
+          created_at?: string
+          departure?: string
+          id?: string
+          passenger_name?: string
+          route?: string
+          seats?: number
+          status?: string
+          total_price?: number
+        }
+        Relationships: []
+      }
+      shuttle_schedules: {
+        Row: {
+          arrival: string
+          available_seats: number
+          departure: string
+          duration: string
+          from_city: string
+          id: string
+          operator: string
+          price: number
+          to_city: string
+          total_seats: number
+        }
+        Insert: {
+          arrival: string
+          available_seats: number
+          departure: string
+          duration: string
+          from_city: string
+          id: string
+          operator: string
+          price: number
+          to_city: string
+          total_seats: number
+        }
+        Update: {
+          arrival?: string
+          available_seats?: number
+          departure?: string
+          duration?: string
+          from_city?: string
+          id?: string
+          operator?: string
+          price?: number
+          to_city?: string
+          total_seats?: number
+        }
+        Relationships: []
+      }
+      transactions: {
+        Row: {
+          amount: number
+          created_at: string
+          description: string
+          id: string
+          method: string
+          related_to: string
+          status: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          description: string
+          id: string
+          method: string
+          related_to?: string
+          status?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          description?: string
+          id?: string
+          method?: string
+          related_to?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      trips: {
+        Row: {
+          created_at: string
+          distance: string
+          driver_name: string
+          dropoff: string
+          fare: number
+          id: string
+          passenger_name: string
+          pickup: string
+          status: string
+          vehicle_class: string
+        }
+        Insert: {
+          created_at?: string
+          distance?: string
+          driver_name: string
+          dropoff: string
+          fare?: number
+          id: string
+          passenger_name: string
+          pickup: string
+          status?: string
+          vehicle_class: string
+        }
+        Update: {
+          created_at?: string
+          distance?: string
+          driver_name?: string
+          dropoff?: string
+          fare?: number
+          id?: string
+          passenger_name?: string
+          pickup?: string
+          status?: string
+          vehicle_class?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
