@@ -1,71 +1,50 @@
 
 
-## Plan: Connect Admin Dashboard to Lovable Cloud Database
+## Plan: Sistem Manajemen Shuttle Komprehensif
 
-### Summary
-Replace all mock data in the admin dashboard with persistent Supabase tables. This involves creating database tables, seeding initial data, setting up the Supabase client, and updating all admin pages to fetch/mutate real data.
+Berdasarkan gambar yang diunggah, ini adalah layanan shuttle **Medan → Kualanamu Airport** dengan sistem rayon, kelas kendaraan, dan titik jemput bertingkat.
 
-### Step 1: Enable Lovable Cloud & Create Database Tables
+### Apa yang Dibangun
 
-Create 6 tables matching the current mock data structure:
+**1. Database Tables Baru (4 tabel)**
 
-- **users** — id, name, email, phone, role (passenger/driver/admin), status (active/suspended), total_trips, created_at
-- **drivers** — id, name, email, phone, vehicle_class, vehicle_plate, vehicle_model, status (online/offline/busy), rating, total_trips, approved, joined_at
-- **trips** — id, passenger_name, driver_name, pickup, dropoff, vehicle_class, status, fare, distance, created_at
-- **shuttle_schedules** — id, from_city, to_city, departure, arrival, duration, price, operator, total_seats, available_seats
-- **shuttle_bookings** — id, passenger_name, route, departure, seats, total_price, status, created_at
-- **transactions** — id, description, amount, method, status, related_to, created_at
-- **promos** — id, title, subtitle, gradient, badge, active, start_date, end_date
+- **shuttle_routes** — Rayon/rute utama (Rayon A, B, C, D) dengan kota asal, tujuan, total jarak
+- **shuttle_pickup_points** — Titik jemput per rayon dengan urutan, nama lokasi, waktu jemput (WIB), dan tarif (Mtr)
+- **shuttle_vehicle_classes** — 3 kelas kendaraan (Reguler, Semi Executive, Executive) dengan harga/km, ketentuan bagasi, dan layout kursi per tipe kendaraan (SUV, Minicar, Hiace)
+- **shuttle_departures** — Jadwal keberangkatan batch (A 06:00, B 07:00, C 08:00, dst.) dengan rayon assignment dan driver count
 
-All tables will have RLS disabled initially (admin-only access pattern with sessionStorage guard).
+**2. Seed Data dari Gambar**
 
-### Step 2: Seed Initial Data
-Insert the current mock data as seed records so the dashboard isn't empty on first load.
+Rayon A (17 titik jemput: Hermes Palace → KNO), Rayon B (18 titik: Cambridge → KNO), Rayon C (12 titik: Adi Mulia → Tol KNO), Rayon D (17 titik: Hotel TD Pardede → Kualanamu). Kelas kendaraan: Reguler (Rp 1.900/km), Semi Executive (Rp 2.200/km), Executive (Rp 2.500/km) dengan seating layout per tipe (SUV/Minicar/Hiace).
 
-### Step 3: Set Up Supabase Client
-Create `src/integrations/supabase/client.ts` with the auto-generated Supabase URL and anon key from Lovable Cloud.
+**3. Admin Shuttle Page Overhaul (`AdminShuttle.tsx`)**
 
-### Step 4: Create Data Hooks
-Create `src/hooks/use-admin-data.ts` with React Query hooks for each entity:
-- `useAdminUsers()`, `useAdminDrivers()`, `useAdminTrips()`, etc.
-- Each hook returns `{ data, isLoading, error, refetch }`
-- Mutation hooks for status updates: `useUpdateUserStatus()`, `useUpdateDriverApproval()`, etc.
+Tabs baru:
+- **Rayon & Rute** — Tabel rayon dengan expand untuk melihat/edit titik jemput, waktu, dan tarif. CRUD untuk menambah/hapus titik jemput.
+- **Kelas Kendaraan** — Tabel kelas dengan harga/km, aturan bagasi, dan visual seating layout (SUV: 1+driver/2+3 rows, Minicar: 1+2+3, Hiace: 1+2+2+5+bagasi). Edit harga dan ketentuan.
+- **Jadwal Keberangkatan** — Batch schedule per hari (A/B/C rotasi rayon) dengan assignment driver. Manage departure times.
+- **Booking** — Existing booking table (tetap)
 
-### Step 5: Update Admin Pages
-Replace mock data imports with real data hooks in all 7 admin pages:
+**4. Data Hooks**
 
-| Page | Changes |
-|------|---------|
-| `AdminDashboard.tsx` | Fetch KPIs from aggregated queries, charts from trips/transactions |
-| `AdminUsers.tsx` | Query users table, real suspend/activate mutations |
-| `AdminDrivers.tsx` | Query drivers table, real approve/suspend mutations |
-| `AdminTrips.tsx` | Query trips table with status filters |
-| `AdminShuttle.tsx` | Query shuttle_schedules + shuttle_bookings |
-| `AdminPayments.tsx` | Query transactions, compute revenue stats |
-| `AdminPromos.tsx` | Full CRUD on promos table |
+Tambah hooks di `use-admin-data.ts`: `useShuttleRoutes`, `useShuttlePickupPoints`, `useShuttleVehicleClasses`, `useShuttleDepartures` dengan mutation hooks untuk CRUD.
 
-### Step 6: Add Loading & Error States
-Add skeleton loaders and error alerts to all admin pages for better UX during data fetching.
+**5. Update Shuttle Booking Page (User-facing)**
+
+Update `Shuttle.tsx` untuk menggunakan data rayon & titik jemput dari database (bukan hardcoded cities). User memilih rayon → titik jemput → kelas kendaraan → kursi → bayar.
 
 ### Files
 
 | Action | File |
 |--------|------|
-| Create | Database migrations for 7 tables + seed data |
-| Create | `src/integrations/supabase/client.ts` |
-| Create | `src/integrations/supabase/types.ts` |
-| Create | `src/hooks/use-admin-data.ts` |
-| Modify | `src/pages/admin/AdminDashboard.tsx` |
-| Modify | `src/pages/admin/AdminUsers.tsx` |
-| Modify | `src/pages/admin/AdminDrivers.tsx` |
-| Modify | `src/pages/admin/AdminTrips.tsx` |
-| Modify | `src/pages/admin/AdminShuttle.tsx` |
-| Modify | `src/pages/admin/AdminPayments.tsx` |
-| Modify | `src/pages/admin/AdminPromos.tsx` |
+| Create | Migration: 4 tabel baru + seed data |
+| Modify | `src/hooks/use-admin-data.ts` — tambah hooks baru |
+| Rewrite | `src/pages/admin/AdminShuttle.tsx` — UI komprehensif |
+| Modify | `src/pages/Shuttle.tsx` — gunakan data dari database |
 
 ### Technical Notes
-- Lovable Cloud must be enabled first (it auto-provisions Supabase)
-- RLS will be kept simple since admin access is already guarded by sessionStorage auth
-- React Query provides caching, background refetch, and optimistic updates
-- Mock data file (`mock-admin-data.ts`) will be kept as fallback reference but no longer imported by admin pages
+- Seating layout disimpan sebagai JSON array di `shuttle_vehicle_classes` (rows × cols per vehicle type)
+- Tarif di pickup_points dalam satuan meter (sesuai gambar "FAR (Mtr)"), akan dikonversi ke rupiah berdasarkan harga/km kelas kendaraan
+- RLS permissive (admin-guarded via sessionStorage)
+- Existing `shuttle_schedules` dan `shuttle_bookings` tables tetap dipertahankan untuk backward compatibility
 
