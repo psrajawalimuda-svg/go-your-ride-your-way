@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { ArrowLeft, MapPin, Navigation, Clock, Car, Bike, Truck, CreditCard, Wallet, Crosshair, Loader2, Search } from "lucide-react";
 import { useGeocoding, type GeocodingResult } from "@/hooks/use-geocoding";
+import { haversineDistance } from "@/lib/dispatch";
 import { MobileLayout } from "@/components/layout/MobileLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,12 +15,20 @@ import { usePayment } from "@/context/PaymentContext";
 import { useNearbyDrivers } from "@/hooks/use-realtime";
 import { dispatch } from "@/lib/dispatch";
 
-const vehicles = [
-  { id: "bike" as const, icon: Bike, label: "PYU Bike", eta: "3 min", price: "Rp 8,000", desc: "Affordable motorcycle ride" },
-  { id: "car" as const, icon: Car, label: "PYU Car", eta: "5 min", price: "Rp 25,000", desc: "Comfortable car ride" },
-  { id: "premium" as const, icon: Car, label: "PYU Premium", eta: "7 min", price: "Rp 45,000", desc: "Luxury experience" },
-  { id: "womenbike" as const, icon: Bike, label: "PYU Women Bike", eta: "5 min", price: "Rp 15,000", desc: "Safe ride by female drivers" },
+const VEHICLE_CONFIG = [
+  { id: "bike" as const, icon: Bike, label: "PYU Bike", eta: "3 min", baseFare: 2000, perKm: 1500, desc: "Affordable motorcycle ride" },
+  { id: "car" as const, icon: Car, label: "PYU Car", eta: "5 min", baseFare: 5000, perKm: 4000, desc: "Comfortable car ride" },
+  { id: "premium" as const, icon: Car, label: "PYU Premium", eta: "7 min", baseFare: 10000, perKm: 7000, desc: "Luxury experience" },
+  { id: "womenbike" as const, icon: Bike, label: "PYU Women Bike", eta: "5 min", baseFare: 3000, perKm: 2000, desc: "Safe ride by female drivers" },
 ];
+
+function formatRupiah(n: number) {
+  return `Rp ${n.toLocaleString("id-ID")}`;
+}
+
+function calcFare(baseFare: number, perKm: number, distKm: number) {
+  return Math.round((baseFare + distKm * perKm) / 1000) * 1000;
+}
 
 const defaultSuggestions: GeocodingResult[] = [
   { name: "Grand Indonesia Mall", addr: "Jl. MH Thamrin No. 1", latlng: [-6.1950, 106.8220] },
@@ -100,6 +109,23 @@ export default function RideBooking() {
 
   const canProceedToFare = pickupPos && destPos;
 
+  // Dynamic distance & pricing
+  const distanceKm = useMemo(() => {
+    if (!pickupPos || !destPos) return 0;
+    return haversineDistance(pickupPos, destPos);
+  }, [pickupPos, destPos]);
+
+  const estimatedMinutes = useMemo(() => Math.max(1, Math.ceil(distanceKm * 3)), [distanceKm]);
+
+  const vehicles = useMemo(() =>
+    VEHICLE_CONFIG.map((v) => ({
+      ...v,
+      price: formatRupiah(calcFare(v.baseFare, v.perKm, distanceKm)),
+      fareNum: calcFare(v.baseFare, v.perKm, distanceKm),
+    })),
+    [distanceKm]
+  );
+
   const handleConfirmLocation = () => {
     if (canProceedToFare) setStep("fare");
   };
@@ -107,18 +133,17 @@ export default function RideBooking() {
   const handleSelectVehicle = () => setStep("confirm");
 
   const handleBook = () => {
-    const fare = vehicles.find((v) => v.id === selectedVehicle)?.price || "Rp 25,000";
-    const fareNum = parseInt(fare.replace(/\D/g, ""));
+    const v = vehicles.find((v) => v.id === selectedVehicle)!;
     setRide({
       pickup: { name: pickupName, latlng: pickupPos },
       destination: { name: destName, latlng: destPos },
       vehicle: selectedVehicle,
       payment,
-      fare,
+      fare: v.price,
       status: "searching",
     });
     createTransaction({
-      amount: fareNum,
+      amount: v.fareNum,
       description: `Ride: ${pickupName} → ${destName}`,
       returnPath: "/ride/tracking",
     });
@@ -254,8 +279,8 @@ export default function RideBooking() {
                   </div>
                 </div>
                 <div className="mt-3 flex items-center gap-4 text-xs text-muted-foreground">
-                  <span className="flex items-center gap-1"><Navigation className="h-3 w-3" /> ~5.2 km</span>
-                  <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> ~15 min</span>
+                  <span className="flex items-center gap-1"><Navigation className="h-3 w-3" /> ~{distanceKm.toFixed(1)} km</span>
+                  <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> ~{estimatedMinutes} min</span>
                 </div>
               </Card>
 

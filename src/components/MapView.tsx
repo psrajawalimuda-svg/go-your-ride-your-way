@@ -103,9 +103,10 @@ export function MapView({
     if (!("geolocation" in navigator) || !mapInstanceRef.current || !markerRef.current) return;
     navigator.geolocation.getCurrentPosition(
       (pos) => {
+        if (!mapInstanceRef.current || !markerRef.current) return;
         const latlng: [number, number] = [pos.coords.latitude, pos.coords.longitude];
-        mapInstanceRef.current?.setView(latlng, zoom, { animate: true });
-        markerRef.current?.setLatLng(latlng);
+        mapInstanceRef.current.setView(latlng, zoom, { animate: true });
+        markerRef.current.setLatLng(latlng);
       },
       () => {},
       { enableHighAccuracy: true, timeout: 8000 }
@@ -135,6 +136,7 @@ export function MapView({
     if (useGeolocation && "geolocation" in navigator) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
+          if (!mapInstanceRef.current) return;
           const userPos: [number, number] = [position.coords.latitude, position.coords.longitude];
           map.setView(userPos, zoom);
           marker.setLatLng(userPos);
