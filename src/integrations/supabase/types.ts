@@ -188,6 +188,115 @@ export type Database = {
         }
         Relationships: []
       }
+      shuttle_departures: {
+        Row: {
+          active: boolean
+          arrival_time: string
+          batch_label: string
+          created_at: string
+          departure_time: string
+          driver_count: number
+          id: string
+          route_id: string
+        }
+        Insert: {
+          active?: boolean
+          arrival_time: string
+          batch_label: string
+          created_at?: string
+          departure_time: string
+          driver_count?: number
+          id?: string
+          route_id: string
+        }
+        Update: {
+          active?: boolean
+          arrival_time?: string
+          batch_label?: string
+          created_at?: string
+          departure_time?: string
+          driver_count?: number
+          id?: string
+          route_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shuttle_departures_route_id_fkey"
+            columns: ["route_id"]
+            isOneToOne: false
+            referencedRelation: "shuttle_routes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shuttle_pickup_points: {
+        Row: {
+          created_at: string
+          distance_m: number
+          id: string
+          name: string
+          pickup_time: string
+          route_id: string
+          sequence: number
+        }
+        Insert: {
+          created_at?: string
+          distance_m?: number
+          id?: string
+          name: string
+          pickup_time: string
+          route_id: string
+          sequence: number
+        }
+        Update: {
+          created_at?: string
+          distance_m?: number
+          id?: string
+          name?: string
+          pickup_time?: string
+          route_id?: string
+          sequence?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shuttle_pickup_points_route_id_fkey"
+            columns: ["route_id"]
+            isOneToOne: false
+            referencedRelation: "shuttle_routes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shuttle_routes: {
+        Row: {
+          code: string
+          created_at: string
+          from_city: string
+          id: string
+          name: string
+          to_city: string
+          total_distance_m: number
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          from_city: string
+          id?: string
+          name: string
+          to_city: string
+          total_distance_m?: number
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          from_city?: string
+          id?: string
+          name?: string
+          to_city?: string
+          total_distance_m?: number
+        }
+        Relationships: []
+      }
       shuttle_schedules: {
         Row: {
           arrival: string
@@ -224,6 +333,36 @@ export type Database = {
           price?: number
           to_city?: string
           total_seats?: number
+        }
+        Relationships: []
+      }
+      shuttle_vehicle_classes: {
+        Row: {
+          baggage_rules: Json
+          created_at: string
+          id: string
+          name: string
+          price_per_km: number
+          seating_layouts: Json
+          sort_order: number
+        }
+        Insert: {
+          baggage_rules?: Json
+          created_at?: string
+          id?: string
+          name: string
+          price_per_km: number
+          seating_layouts?: Json
+          sort_order?: number
+        }
+        Update: {
+          baggage_rules?: Json
+          created_at?: string
+          id?: string
+          name?: string
+          price_per_km?: number
+          seating_layouts?: Json
+          sort_order?: number
         }
         Relationships: []
       }
