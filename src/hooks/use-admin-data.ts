@@ -2,6 +2,28 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 
+export interface DriverApplication {
+  id: string;
+  user_id: string;
+  full_name: string;
+  email: string;
+  phone: string;
+  license_number: string;
+  license_expiry: string;
+  vehicle_type: string;
+  vehicle_model: string;
+  vehicle_plate: string;
+  vehicle_year: number;
+  ktp_url: string;
+  stnk_url: string;
+  license_url: string;
+  vehicle_photo_url: string;
+  status: "pending" | "approved" | "rejected";
+  admin_notes?: string;
+  created_at: string;
+  updated_at: string;
+}
+
 // ─── Query Hooks ────────────────────────────────────────────────────────────
 
 export const useAdminUsers = () =>
@@ -177,6 +199,19 @@ export const useAdminTransactions = () =>
     },
   });
 
+export const useAdminDriverApplications = () =>
+  useQuery({
+    queryKey: ["admin", "driver_applications"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("driver_applications")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data as unknown as DriverApplication[];
+    },
+  });
+
 export const useAdminPromos = () =>
   useQuery({
     queryKey: ["admin", "promos"],
@@ -208,6 +243,55 @@ export const useUpdateDriverApproval = () => {
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "drivers"] }),
+  });
+};
+
+export const useReviewDriverApplication = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, status, admin_notes }: { id: string; status: "approved" | "rejected"; admin_notes?: string }) => {
+      // 1. Update application status
+      const { data, error: appError } = await (supabase as any)
+        .from("driver_applications")
+        .update({ status, admin_notes, updated_at: new Date().toISOString() } as any)
+        .eq("id", id)
+        .select()
+        .single();
+      
+      if (appError) throw appError;
+      const app = data as unknown as DriverApplication;
+
+      // 2. If approved, create/update entry in drivers table
+      if (status === "approved" && app) {
+        const { error: driverError } = await supabase.from("drivers").upsert({
+          id: app.user_id,
+          name: app.full_name,
+          email: app.email,
+          phone: app.phone,
+          vehicle_class: app.vehicle_type,
+          vehicle_plate: app.vehicle_plate,
+          vehicle_model: app.vehicle_model,
+          approved: true,
+          status: "offline",
+          joined_at: new Date().toISOString()
+        });
+        
+        if (driverError) throw driverError;
+
+        // 3. Update user role to driver
+        const { error: userError } = await supabase
+          .from("app_users")
+          .update({ role: "driver" })
+          .eq("id", app.user_id);
+          
+        if (userError) throw userError;
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "driver_applications"] });
+      qc.invalidateQueries({ queryKey: ["admin", "drivers"] });
+      qc.invalidateQueries({ queryKey: ["admin", "users"] });
+    },
   });
 };
 

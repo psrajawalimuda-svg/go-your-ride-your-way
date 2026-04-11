@@ -23,6 +23,7 @@ import Payment from "./pages/Payment";
 import PaymentStatus from "./pages/PaymentStatus";
 import NotFound from "./pages/NotFound";
 import DriverLogin from "./pages/driver/DriverLogin";
+import DriverRegistration from "./pages/driver/DriverRegistration";
 import DriverHome from "./pages/driver/DriverHome";
 import DriverTrip from "./pages/driver/DriverTrip";
 import DriverEarnings from "./pages/driver/DriverEarnings";
@@ -64,6 +65,7 @@ const App = () => (
                       <Route path="/payment" element={<Payment />} />
                       <Route path="/payment/status" element={<PaymentStatus />} />
                       <Route path="/driver/login" element={<DriverLogin />} />
+                      <Route path="/driver/register" element={<DriverRegistration />} />
                       <Route path="/driver/home" element={<DriverHome />} />
                       <Route path="/driver/trip" element={<DriverTrip />} />
                       <Route path="/driver/earnings" element={<DriverEarnings />} />

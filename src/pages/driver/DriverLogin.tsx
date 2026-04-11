@@ -72,6 +72,18 @@ export default function DriverLogin() {
             </button>
           </div>
         )}
+
+        <div className="mt-auto py-6 text-center">
+          <p className="text-sm text-muted-foreground">
+            Don't have an account?{" "}
+            <button
+              onClick={() => navigate("/driver/register")}
+              className="text-primary font-bold hover:underline"
+            >
+              Register as Driver
+            </button>
+          </p>
+        </div>
       </div>
     </DriverLayout>
   );
