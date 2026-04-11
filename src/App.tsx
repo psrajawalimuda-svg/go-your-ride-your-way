@@ -25,6 +25,14 @@ import DriverLogin from "./pages/driver/DriverLogin";
 import DriverHome from "./pages/driver/DriverHome";
 import DriverTrip from "./pages/driver/DriverTrip";
 import DriverEarnings from "./pages/driver/DriverEarnings";
+import AdminLogin from "./pages/admin/AdminLogin";
+import AdminDashboard from "./pages/admin/AdminDashboard";
+import AdminUsers from "./pages/admin/AdminUsers";
+import AdminDrivers from "./pages/admin/AdminDrivers";
+import AdminTrips from "./pages/admin/AdminTrips";
+import AdminShuttle from "./pages/admin/AdminShuttle";
+import AdminPayments from "./pages/admin/AdminPayments";
+import AdminPromos from "./pages/admin/AdminPromos";
 
 const queryClient = new QueryClient();
 
