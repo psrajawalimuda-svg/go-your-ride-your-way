@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/context/AuthContext";
 import { MobileLayout } from "@/components/layout/MobileLayout";
+import { lovable } from "@/integrations/lovable/index";
+import { toast } from "sonner";
 
 export default function Login() {
   const [isSignUp, setIsSignUp] = useState(false);
@@ -16,7 +18,7 @@ export default function Login() {
   const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
   
-  const { signInWithEmail, signUpWithEmail, signInWithGoogle } = useAuth();
+  const { signInWithEmail, signUpWithEmail } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -38,9 +40,17 @@ export default function Login() {
 
   const handleGoogleLogin = async () => {
     try {
-      await signInWithGoogle();
+      const result = await lovable.auth.signInWithOAuth("google", {
+        redirect_uri: window.location.origin,
+      });
+      if (result.error) {
+        toast.error("Failed to sign in with Google");
+        return;
+      }
+      if (result.redirected) return;
+      navigate("/home");
     } catch (error) {
-      // Error is handled in AuthContext
+      toast.error("Failed to sign in with Google");
     }
   };
 
