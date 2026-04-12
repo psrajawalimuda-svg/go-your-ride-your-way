@@ -23,7 +23,6 @@ import {
 const SEARCH_TIMEOUT = 15000;
 
 import { ConnectionStatusBadge } from "@/components/ConnectionStatusBadge";
-import { SOSButton } from "@/components/ride/SOSButton";
 
 export default function RideTracking() {
   const navigate = useNavigate();

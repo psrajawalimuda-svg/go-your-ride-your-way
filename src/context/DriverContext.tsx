@@ -40,7 +40,7 @@ interface DriverState {
   login: (phone: string) => void;
   logout: () => void;
   toggleStatus: () => void;
-  acceptRide: () => void;
+  acceptRide: (request: RideRequest) => void;
   rejectRide: () => void;
   advanceTrip: () => void;
   simulateRequest: () => void;

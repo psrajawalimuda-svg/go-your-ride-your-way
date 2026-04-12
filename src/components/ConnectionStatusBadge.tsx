@@ -48,6 +48,7 @@ export function ConnectionStatusBadge({ className }: { className?: string }) {
   const status = useConnectionStatus();
   const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.disconnected;
   const Icon = config.icon;
+  const animateClass = "animate" in config ? (config as any).animate : undefined;
 
   return (
     <TooltipProvider>
@@ -56,7 +57,7 @@ export function ConnectionStatusBadge({ className }: { className?: string }) {
           <div className={cn("flex items-center gap-1.5 cursor-help", className)}>
             <div className={cn("w-2 h-2 rounded-full", config.color, status === "connected" ? "animate-pulse" : "")} />
             <Badge variant="outline" className={cn("text-[10px] px-1.5 h-5 font-bold uppercase tracking-wider", className)}>
-              <Icon className={cn("h-3 w-3 mr-1", config.animate)} />
+              <Icon className={cn("h-3 w-3 mr-1", animateClass)} />
               {config.label}
             </Badge>
           </div>
