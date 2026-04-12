@@ -5,20 +5,44 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Lock } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 export default function AdminLogin() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (email === "admin@pyugo.com" && password === "admin123") {
-      sessionStorage.setItem("pyugo_admin", email);
-      navigate("/admin", { replace: true });
-    } else {
-      setError("Email atau password salah");
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+
+      // Check if user has admin role
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Login failed");
+
+      const { data: profile } = await supabase
+        .from("app_users")
+        .select("role")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (profile?.role !== "admin") {
+        await supabase.auth.signOut();
+        toast.error("Akun ini tidak memiliki akses admin");
+        return;
+      }
+
+      toast.success("Login berhasil");
+      navigate("/admin/dashboard", { replace: true });
+    } catch (error: any) {
+      toast.error(error.message || "Email atau password salah");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -42,8 +66,9 @@ export default function AdminLogin() {
               <Label htmlFor="password">Password</Label>
               <Input id="password" type="password" placeholder="••••••" value={password} onChange={(e) => setPassword(e.target.value)} required />
             </div>
-            {error && <p className="text-sm text-destructive">{error}</p>}
-            <Button type="submit" className="w-full">Masuk</Button>
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? "Memproses..." : "Masuk"}
+            </Button>
           </form>
         </CardContent>
       </Card>
