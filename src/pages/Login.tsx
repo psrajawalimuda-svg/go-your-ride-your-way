@@ -151,13 +151,25 @@ export default function Login() {
               </div>
             </div>
 
+            {!isSignUp && (
+              <div className="text-right">
+                <button
+                  type="button"
+                  onClick={() => navigate("/forgot-password")}
+                  className="text-sm text-primary font-semibold hover:underline"
+                >
+                  Lupa password?
+                </button>
+              </div>
+            )}
+
             <Button 
               type="submit" 
               className="w-full h-12 rounded-xl font-bold text-base mt-4"
               disabled={loading}
             >
               {loading ? (
-                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                <div className="w-5 h-5 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
               ) : (
                 isSignUp ? "Sign Up" : "Sign In"
               )}

@@ -13,6 +13,8 @@ import { DriverNotificationProvider } from "./context/DriverNotificationContext"
 import Splash from "./pages/Splash";
 import Onboarding from "./pages/Onboarding";
 import Login from "./pages/Login";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 import Index from "./pages/Index";
 import Shuttle from "./pages/Shuttle";
 import Activity from "./pages/Activity";
