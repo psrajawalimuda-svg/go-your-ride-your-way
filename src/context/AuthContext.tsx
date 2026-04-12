@@ -138,18 +138,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signInWithGoogle = async () => {
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: window.location.origin + "/home"
-        }
-      });
-      if (error) throw error;
-    } catch (error: any) {
-      toast.error(error.message || "Failed to sign in with Google");
-      throw error;
-    }
+    // Deprecated: Use lovable.auth.signInWithOAuth("google") directly
+    throw new Error("Use lovable.auth.signInWithOAuth instead");
   };
 
   const signOut = async () => {

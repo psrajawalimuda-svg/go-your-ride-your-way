@@ -25,8 +25,8 @@ export default function Activity() {
     ...(dbBookings || []).map((b) => ({
       id: b.id,
       type: "shuttle" as const,
-      from: b.route.split("→")[0]?.trim() || b.route,
-      to: b.route.split("→")[1]?.trim() || "",
+      from: b.pickup_point_id,
+      to: b.departure_id,
       date: new Date(b.created_at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }),
       price: `Rp ${b.total_price.toLocaleString("id-ID")}`,
       status: b.status,

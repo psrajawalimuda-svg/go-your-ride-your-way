@@ -578,9 +578,9 @@ export default function AdminShuttle() {
                       {(bookings ?? []).map((b) => (
                         <TableRow key={b.id}>
                           <TableCell className="font-mono text-xs">{b.id}</TableCell>
-                          <TableCell className="font-medium">{b.passenger_name}</TableCell>
-                          <TableCell className="text-sm">{b.route}</TableCell>
-                          <TableCell className="hidden md:table-cell">{b.seats}</TableCell>
+                          <TableCell className="font-medium">{b.user_id || "-"}</TableCell>
+                          <TableCell className="text-sm">{b.departure_id}</TableCell>
+                          <TableCell className="hidden md:table-cell">{"-"}</TableCell>
                           <TableCell>Rp {b.total_price.toLocaleString()}</TableCell>
                           <TableCell><Badge variant="secondary" className={`text-xs ${bookingStatusColor[b.status] || ""}`}>{b.status}</Badge></TableCell>
                         </TableRow>

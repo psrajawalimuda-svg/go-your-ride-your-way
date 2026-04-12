@@ -77,6 +77,80 @@ export type Database = {
         }
         Relationships: []
       }
+      driver_applications: {
+        Row: {
+          admin_notes: string | null
+          created_at: string
+          email: string
+          full_name: string
+          id: string
+          ktp_url: string | null
+          license_expiry: string
+          license_number: string
+          license_url: string | null
+          phone: string
+          status: string
+          stnk_url: string | null
+          updated_at: string
+          user_id: string | null
+          vehicle_model: string
+          vehicle_photo_url: string | null
+          vehicle_plate: string
+          vehicle_type: string
+          vehicle_year: number
+        }
+        Insert: {
+          admin_notes?: string | null
+          created_at?: string
+          email: string
+          full_name: string
+          id?: string
+          ktp_url?: string | null
+          license_expiry: string
+          license_number: string
+          license_url?: string | null
+          phone: string
+          status?: string
+          stnk_url?: string | null
+          updated_at?: string
+          user_id?: string | null
+          vehicle_model: string
+          vehicle_photo_url?: string | null
+          vehicle_plate: string
+          vehicle_type: string
+          vehicle_year: number
+        }
+        Update: {
+          admin_notes?: string | null
+          created_at?: string
+          email?: string
+          full_name?: string
+          id?: string
+          ktp_url?: string | null
+          license_expiry?: string
+          license_number?: string
+          license_url?: string | null
+          phone?: string
+          status?: string
+          stnk_url?: string | null
+          updated_at?: string
+          user_id?: string | null
+          vehicle_model?: string
+          vehicle_photo_url?: string | null
+          vehicle_plate?: string
+          vehicle_type?: string
+          vehicle_year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_applications_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "app_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       drivers: {
         Row: {
           approved: boolean
@@ -197,38 +271,188 @@ export type Database = {
         }
         Relationships: []
       }
-      shuttle_bookings: {
+      ride_requests: {
         Row: {
           created_at: string
-          departure: string
+          driver_id: string | null
+          dropoff_coords: Json
+          dropoff_label: string
+          fare: number
           id: string
-          passenger_name: string
-          route: string
-          seats: number
+          passenger_id: string | null
+          pickup_coords: Json
+          pickup_label: string
           status: string
-          total_price: number
+          updated_at: string
         }
         Insert: {
           created_at?: string
-          departure: string
-          id: string
-          passenger_name: string
-          route: string
-          seats?: number
+          driver_id?: string | null
+          dropoff_coords: Json
+          dropoff_label: string
+          fare: number
+          id?: string
+          passenger_id?: string | null
+          pickup_coords: Json
+          pickup_label: string
           status?: string
-          total_price: number
+          updated_at?: string
         }
         Update: {
           created_at?: string
-          departure?: string
+          driver_id?: string | null
+          dropoff_coords?: Json
+          dropoff_label?: string
+          fare?: number
           id?: string
-          passenger_name?: string
-          route?: string
-          seats?: number
+          passenger_id?: string | null
+          pickup_coords?: Json
+          pickup_label?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ride_requests_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ride_requests_passenger_id_fkey"
+            columns: ["passenger_id"]
+            isOneToOne: false
+            referencedRelation: "app_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shuttle_booking_passengers: {
+        Row: {
+          booking_id: string
+          created_at: string
+          departure_id: string | null
+          email: string | null
+          id: string
+          name: string
+          phone: string
+          seat_number: number
+          vehicle_class_id: string | null
+        }
+        Insert: {
+          booking_id: string
+          created_at?: string
+          departure_id?: string | null
+          email?: string | null
+          id?: string
+          name: string
+          phone: string
+          seat_number: number
+          vehicle_class_id?: string | null
+        }
+        Update: {
+          booking_id?: string
+          created_at?: string
+          departure_id?: string | null
+          email?: string | null
+          id?: string
+          name?: string
+          phone?: string
+          seat_number?: number
+          vehicle_class_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shuttle_booking_passengers_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "shuttle_bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shuttle_booking_passengers_departure_id_fkey"
+            columns: ["departure_id"]
+            isOneToOne: false
+            referencedRelation: "shuttle_departures"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shuttle_booking_passengers_vehicle_class_id_fkey"
+            columns: ["vehicle_class_id"]
+            isOneToOne: false
+            referencedRelation: "shuttle_vehicle_classes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shuttle_bookings: {
+        Row: {
+          created_at: string
+          departure_id: string
+          id: string
+          payment_id: string | null
+          pickup_point_id: string
+          status: string
+          total_price: number
+          updated_at: string
+          user_id: string | null
+          vehicle_class_id: string
+        }
+        Insert: {
+          created_at?: string
+          departure_id: string
+          id?: string
+          payment_id?: string | null
+          pickup_point_id: string
+          status?: string
+          total_price: number
+          updated_at?: string
+          user_id?: string | null
+          vehicle_class_id: string
+        }
+        Update: {
+          created_at?: string
+          departure_id?: string
+          id?: string
+          payment_id?: string | null
+          pickup_point_id?: string
           status?: string
           total_price?: number
+          updated_at?: string
+          user_id?: string | null
+          vehicle_class_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "shuttle_bookings_departure_id_fkey"
+            columns: ["departure_id"]
+            isOneToOne: false
+            referencedRelation: "shuttle_departures"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shuttle_bookings_pickup_point_id_fkey"
+            columns: ["pickup_point_id"]
+            isOneToOne: false
+            referencedRelation: "shuttle_pickup_points"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shuttle_bookings_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "app_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shuttle_bookings_vehicle_class_id_fkey"
+            columns: ["vehicle_class_id"]
+            isOneToOne: false
+            referencedRelation: "shuttle_vehicle_classes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       shuttle_departures: {
         Row: {
@@ -482,7 +706,39 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      create_shuttle_booking: {
+        Args: {
+          p_departure_id: string
+          p_passengers: Json
+          p_pickup_point_id: string
+          p_total_price: number
+          p_user_id: string
+          p_vehicle_class_id: string
+        }
+        Returns: string
+      }
+      create_shuttle_booking_v2: {
+        Args: {
+          p_departure_id: string
+          p_passengers: Json
+          p_pickup_point_id: string
+          p_total_price: number
+          p_user_id: string
+          p_vehicle_class_id: string
+        }
+        Returns: string
+      }
+      create_shuttle_booking_v3: {
+        Args: {
+          p_departure_id: string
+          p_passengers: Json
+          p_pickup_point_id: string
+          p_total_price: number
+          p_user_id: string
+          p_vehicle_class_id: string
+        }
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never
